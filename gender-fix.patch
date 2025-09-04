@@ -1,6 +1,6 @@
-diff --git a/src/services/sampleData.ts b/src/services/sampleData.ts
---- a/src/services/sampleData.ts
-+++ b/src/services/sampleData.ts
+diff --git a/services/sampleData.ts b/services/sampleData.ts
+--- a/services/sampleData.ts
++++ b/services/sampleData.ts
 @@ -27,7 +27,7 @@
      code: '1x',
      ringCode: '1x',
@@ -199,9 +199,9 @@ diff --git a/src/services/sampleData.ts b/src/services/sampleData.ts
      hasRing: true,
      birthDate: '2025-01-15',
      birthPlace: 'Berlin',
-diff --git a/src/components/TableView.tsx b/src/components/TableView.tsx
---- a/src/components/TableView.tsx
-+++ b/src/components/TableView.tsx
+diff --git a/components/TableView.tsx b/components/TableView.tsx
+--- a/components/TableView.tsx
++++ b/components/TableView.tsx
 @@ -196,9 +196,9 @@
              <select
                value={person.gender}
@@ -215,9 +215,9 @@ diff --git a/src/components/TableView.tsx b/src/components/TableView.tsx
 +              <option value="f">Weiblich</option>
 +              <option value="d">Divers</option>
              </select>
-diff --git a/src/components/PersonDialog.tsx b/src/components/PersonDialog.tsx
---- a/src/components/PersonDialog.tsx
-+++ b/src/components/PersonDialog.tsx
+diff --git a/components/PersonDialog.tsx b/components/PersonDialog.tsx
+--- a/components/PersonDialog.tsx
++++ b/components/PersonDialog.tsx
 @@ -120,9 +120,9 @@
          <select
            value={formData.gender}
