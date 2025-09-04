@@ -1,5 +1,5 @@
-*** a/src/services/sampleData.ts
---- b/src/services/sampleData.ts
+--- a/src/services/sampleData.ts
++++ b/src/services/sampleData.ts
 @@ -27,7 +27,7 @@
      code: '1x',
      ringCode: '1x',
@@ -198,9 +198,9 @@
      hasRing: true,
      birthDate: '2025-01-15',
      birthPlace: 'Berlin',
-*** a/src/components/TableView.tsx
---- b/src/components/TableView.tsx
-@@ -196,7 +196,7 @@
+--- a/src/components/TableView.tsx
++++ b/src/components/TableView.tsx
+@@ -196,10 +196,10 @@
              <select
                value={person.gender}
                onChange={e => handleChange(person.id, 'gender', e.target.value)}
@@ -213,9 +213,9 @@
 +              <option value="f">Weiblich</option>
 +              <option value="d">Divers</option>
              </select>
-*** a/src/components/PersonDialog.tsx
---- b/src/components/PersonDialog.tsx
-@@ -120,7 +120,7 @@
+--- a/src/components/PersonDialog.tsx
++++ b/src/components/PersonDialog.tsx
+@@ -120,10 +120,10 @@
          <select
            value={formData.gender}
            onChange={e => handleChange('gender', e.target.value)}
