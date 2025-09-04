@@ -33,7 +33,8 @@ export function validateFamilyData(people: Person[]) {
 
   // Code-Syntax-Validierung
   people.forEach(p => {
-    if (!/^[0-9]+[A-Z0-9]*$/.test(p.code)) {
+    // erlaubt Partnerkennung "x" am Ende
+    if (!/^[0-9]+[A-Z0-9]*x?$/.test(p.code)) {
       warnings.push(`❌ Ungültiger Code bei ${p.name} (${p.id}): "${p.code}"`);
     }
   });
