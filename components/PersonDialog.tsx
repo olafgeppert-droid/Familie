@@ -19,7 +19,6 @@ const SelectField: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (pr
      <select {...props} className={`mt-1 block w-full rounded-md border-black shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 text-base bg-gray-200 h-11 ${props.className}`} />
 );
 
-// Hilfsfunktion: Name formatieren
 const formatProperNoun = (str: string | null | undefined): string | null => {
     if (!str) return null;
     return str.toLowerCase().replace(/(^|\s|\/|-)\w/g, c => c.toUpperCase());
@@ -45,8 +44,19 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
     const [formData, setFormData] = useState<PersonFormData>(getInitialFormData());
     const [errors, setErrors] = useState<Record<string, string>>({});
     
-    const potentialParents = useMemo(() => people.filter(p => !p.code.endsWith('x')), [people]);
-    const potentialPartners = useMemo(() => people.filter(p => !p.partnerId && p.id !== person?.id), [people, person]);
+    const potentialParents = useMemo(
+        () => people.filter(p => !p.code.endsWith('x')),
+        [people]
+    );
+
+    const potentialPartners = useMemo(() => {
+        return people.filter(p => {
+            if (p.id === person?.id) return false;             // sich selbst nicht
+            if (p.code.endsWith('x')) return false;            // keine Partner-Datensätze
+            const isCurrentSelection = formData.partnerId ? p.id === formData.partnerId : false;
+            return !p.partnerId || isCurrentSelection;         // nur freie Partner oder aktueller
+        });
+    }, [people, person?.id, formData.partnerId]);
 
     useEffect(() => {
         if (isOpen) {
@@ -54,17 +64,25 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                 let relationship: PersonFormData['relationship'] = 'child';
                 if (person.code === '1') relationship = 'progenitor';
                 else if (person.code.endsWith('x')) relationship = 'partner';
-                
+
+                // 🔽 Partner-Fallback über Code ableiten
+                let derivedPartnerId: string | null = person.partnerId ?? null;
+                if (!derivedPartnerId && person.code.endsWith('x')) {
+                    const baseCode = person.code.slice(0, -1);
+                    const partnerOf = people.find(p => p.code === baseCode);
+                    if (partnerOf) derivedPartnerId = partnerOf.id;
+                }
+
                 setFormData({
                     id: person.id,
                     name: person.name,
-                    gender: person.gender === 'w' ? 'f' : person.gender,
+                    gender: person.gender,
                     birthDate: person.birthDate,
                     deathDate: person.deathDate,
                     birthPlace: person.birthPlace,
                     parentId: person.parentId,
-                    partnerId: person.partnerId,
-                    relationship: relationship,
+                    partnerId: derivedPartnerId,
+                    relationship,
                     inheritedFrom: person.inheritedFrom,
                     hasRing: person.hasRing,
                     comment: person.comment,
@@ -76,28 +94,26 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
             setErrors({});
         }
     }, [person, isOpen, people]);
-    
+
     const validate = (): boolean => {
         const newErrors: Record<string, string> = {};
-
         if (!formData.name.trim()) newErrors.name = "Name ist erforderlich.";
         if (!formData.birthDate) newErrors.birthDate = "Geburtsdatum ist erforderlich.";
         if (formData.deathDate && formData.birthDate && formData.deathDate < formData.birthDate) {
             newErrors.deathDate = "Todesdatum kann nicht vor dem Geburtsdatum liegen.";
         }
-
         if (formData.relationship === 'child' && !formData.parentId) {
             newErrors.parentId = "Ein Elternteil muss ausgewählt werden.";
         }
+        if (formData.relationship === 'partner' && !formData.partnerId) {
+            newErrors.partnerId = "Ein Partner muss ausgewählt werden.";
+        }
 
-        if (formData.relationship === 'partner') {
-            if (!formData.partnerId) {
-                newErrors.partnerId = "Ein Partner muss ausgewählt werden.";
-            } else {
-                const selectedPartner = people.find(p => p.id === formData.partnerId);
-                if (selectedPartner && selectedPartner.partnerId && selectedPartner.partnerId !== formData.id) {
-                    newErrors.partnerId = `Die ausgewählte Person (${selectedPartner.name}) hat bereits einen Partner.`;
-                }
+        // Zusatz: Partner darf nicht schon vergeben sein
+        if (formData.relationship === 'partner' && formData.partnerId) {
+            const selected = people.find(p => p.id === formData.partnerId);
+            if (selected && selected.partnerId && selected.partnerId !== formData.id) {
+                newErrors.partnerId = `${selected.name} ist bereits vergeben.`;
             }
         }
 
@@ -185,6 +201,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                                     {errors.parentId && <p className="text-xs text-red-600 mt-1">{errors.parentId}</p>}
                                 </div>
                             )}
+
                             {formData.relationship === 'partner' && (
                                 <div className="md:col-span-2">
                                     <label htmlFor="partnerId" className="block text-base font-medium text-gray-700">Partner(in) von</label>
@@ -245,7 +262,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                                 <label htmlFor="gender" className="block text-base font-medium text-gray-700">Geschlecht</label>
                                 <SelectField id="gender" name="gender" value={formData.gender} onChange={handleChange}>
                                     <option value="m">Männlich</option>
-                                    <option value="f">Weiblich</option>
+                                    <option value="w">Weiblich</option>
                                     <option value="d">Divers</option>
                                 </SelectField>
                             </div>
