@@ -28,7 +28,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
     const getInitialFormData = (): PersonFormData => ({
         id: '',
         name: '',
-        gender: 'm',
+        gender: 'm', // default männlich
         birthDate: '',
         deathDate: null,
         birthPlace: null,
@@ -65,7 +65,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                 if (person.code === '1') relationship = 'progenitor';
                 else if (person.code.endsWith('x')) relationship = 'partner';
 
-                // 🔽 Partner-Fallback über Code ableiten
+                // Partner-Fallback über Code ableiten
                 let derivedPartnerId: string | null = person.partnerId ?? null;
                 if (!derivedPartnerId && person.code.endsWith('x')) {
                     const baseCode = person.code.slice(0, -1);
@@ -76,7 +76,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                 setFormData({
                     id: person.id,
                     name: person.name,
-                    gender: person.gender,
+                    gender: person.gender || 'm',
                     birthDate: person.birthDate,
                     deathDate: person.deathDate,
                     birthPlace: person.birthPlace,
@@ -128,7 +128,8 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                 ...formData,
                 name: formatProperNoun(formData.name) || '',
                 birthPlace: formatProperNoun(formData.birthPlace),
-             };
+                gender: formData.gender || 'm',
+            };
             if (dataToSave.relationship !== 'child') dataToSave.parentId = null;
             if (dataToSave.relationship !== 'partner') dataToSave.partnerId = null;
             onSave(dataToSave);
@@ -164,6 +165,17 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
 
     const handleRemovePhoto = () => {
         setFormData(prev => ({ ...prev, photoUrl: null }));
+    };
+
+    const handleDelete = () => {
+        if (person) {
+            const safePerson: Person = {
+                ...person,
+                parentId: null,
+                partnerId: null,
+            };
+            onDelete(safePerson);
+        }
     };
 
     if (!isOpen) return null;
@@ -262,7 +274,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                                 <label htmlFor="gender" className="block text-base font-medium text-gray-700">Geschlecht</label>
                                 <SelectField id="gender" name="gender" value={formData.gender} onChange={handleChange}>
                                     <option value="m">Männlich</option>
-                                    <option value="w">Weiblich</option>
+                                    <option value="f">Weiblich</option>
                                     <option value="d">Divers</option>
                                 </SelectField>
                             </div>
@@ -296,7 +308,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                             {person && (
                                 <button
                                     type="button"
-                                    onClick={() => onDelete(person)}
+                                    onClick={handleDelete}
                                     className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                                 >
                                     <DeleteIcon className="w-5 h-5 mr-2" />
