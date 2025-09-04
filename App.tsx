@@ -119,7 +119,6 @@ const App: React.FC = () => {
         setValidationErrors(errors);
       }
 
-      setCurrentView('table'); // 🔽 Rücksprung in Tabelle
       forceUpdate();
     }
   };
@@ -181,7 +180,8 @@ const App: React.FC = () => {
     }
 
     setPersonDialogOpen(false);
-    setCurrentView('table'); // 🔽 Rücksprung in Tabelle
+    setCurrentView('table');   // 🔽 Rücksprung in die Tabelle
+    setAppState('database');
     forceUpdate();
   };
 
@@ -197,7 +197,8 @@ const App: React.FC = () => {
         alert('Daten erfolgreich importiert!');
       }
 
-      setCurrentView('table'); // 🔽 Rücksprung in Tabelle
+      setCurrentView('table');   // 🔽 Rücksprung in die Tabelle
+      setAppState('database');
       forceUpdate();
     } catch (error) {
       console.error(error);
@@ -242,13 +243,14 @@ const App: React.FC = () => {
 
     // 🔽 Filter zurücksetzen
     setSearchTerm('');
+    setCurrentView('table');   // 🔽 Rücksprung in die Tabelle
+    setAppState('database');
 
     const errors = validateData(state.people);
     if (errors.length > 0) {
       setValidationErrors(errors);
     }
 
-    setCurrentView('table'); // 🔽 Rücksprung in Tabelle
     forceUpdate();
   };
 
