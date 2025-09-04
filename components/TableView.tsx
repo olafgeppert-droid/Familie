@@ -17,11 +17,11 @@ type SortConfig =
   | { key: keyof Person; direction: 'ascending' | 'descending' }
   | null;
 
-const getGenderIcon = (gender: 'm' | 'w' | 'd') => {
+const getGenderIcon = (gender: 'm' | 'f' | 'd') => {
   switch (gender) {
     case 'm':
       return '♂';
-    case 'w':
+    case 'f':
       return '♀';
     case 'd':
       return '⚥';
