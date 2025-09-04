@@ -59,11 +59,11 @@ const initialState: AppState = loadStateFromLocalStorage();
  */
 function normalizeCodes(people: Person[]): Person[] {
   return people.map(p => {
-    // Beispiel: Code darf nur Buchstaben+Zahlen enthalten
+    // Code darf nur Zahlen + Buchstaben enthalten, optional mit "x" am Ende
     let validCode = p.code;
-    if (!/^[0-9]+[A-Z0-9]*$/.test(validCode)) {
+    if (!/^[0-9]+[A-Z0-9]*x?$/.test(validCode)) {
       // Fallback: repariere Code
-      validCode = validCode.replace(/[^0-9A-Z]/g, '');
+      validCode = validCode.replace(/[^0-9A-Zx]/g, '');
       if (validCode === '') validCode = 'X';
     }
 
