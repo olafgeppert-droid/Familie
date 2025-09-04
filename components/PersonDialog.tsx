@@ -58,7 +58,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                 setFormData({
                     id: person.id,
                     name: person.name,
-                    gender: person.gender === 'f' ? 'w' : person.gender, // 🔥 f → w
+                    gender: person.gender === 'w' ? 'f' : person.gender, // 🔥 w → f
                     birthDate: person.birthDate,
                     deathDate: person.deathDate,
                     birthPlace: person.birthPlace,
