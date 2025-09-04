@@ -1,3 +1,4 @@
+diff --git a/src/services/sampleData.ts b/src/services/sampleData.ts
 --- a/src/services/sampleData.ts
 +++ b/src/services/sampleData.ts
 @@ -27,7 +27,7 @@
@@ -198,9 +199,10 @@
      hasRing: true,
      birthDate: '2025-01-15',
      birthPlace: 'Berlin',
+diff --git a/src/components/TableView.tsx b/src/components/TableView.tsx
 --- a/src/components/TableView.tsx
 +++ b/src/components/TableView.tsx
-@@ -196,10 +196,10 @@
+@@ -196,9 +196,9 @@
              <select
                value={person.gender}
                onChange={e => handleChange(person.id, 'gender', e.target.value)}
@@ -213,9 +215,10 @@
 +              <option value="f">Weiblich</option>
 +              <option value="d">Divers</option>
              </select>
+diff --git a/src/components/PersonDialog.tsx b/src/components/PersonDialog.tsx
 --- a/src/components/PersonDialog.tsx
 +++ b/src/components/PersonDialog.tsx
-@@ -120,10 +120,10 @@
+@@ -120,9 +120,9 @@
          <select
            value={formData.gender}
            onChange={e => handleChange('gender', e.target.value)}
