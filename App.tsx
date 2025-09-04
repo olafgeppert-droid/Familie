@@ -214,12 +214,12 @@ const App: React.FC = () => {
     exportData(people, format);
   };
 
-  // ⬇️ Fix: Personendaten wirklich leeren + zur TreeView wechseln
+  // ⬇️ Fix: Personendaten wirklich leeren + zur TableView wechseln
   const confirmReset = () => {
     dispatch({ type: 'RESET_PERSON_DATA' }); // vorher: RESET (gab’s nicht mehr)
     setResetDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('tree');       // gewünschter Wechsel zur Stammbaum-Ansicht
+    setCurrentView('table');       // gewünschter Wechsel zur Tabellen-Ansicht
     setAppState('database');      // falls man aus Welcome/Info kommt
     forceUpdate();
   };
