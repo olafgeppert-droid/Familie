@@ -209,7 +209,7 @@ export const samplePeople: Person[] = [
     ringCode: '1B → 1B1',
     parentId: 'p005',
     partnerId: 'p014',
-    gender: 'd',
+    gender: 'm',
     hasRing: true,
     birthDate: '1985-07-19',
     birthPlace: 'Berlin',
