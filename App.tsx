@@ -21,6 +21,9 @@ import { WappenInfo } from './components/WappenInfo';
 import { validateData } from './services/validateData';
 import { ValidationDialog } from './components/ValidationDialog';
 
+// ⬇️ WICHTIG: korrekte Typen für Validierungsfehler
+import type { ValidationError } from './services/validateData';
+
 // 🔽 Version aus package.json importieren
 import packageJson from './package.json';
 
@@ -50,7 +53,9 @@ const App: React.FC = () => {
   const [isResetDialogOpen, setResetDialogOpen] = useState(false);
   const [isFindPersonDialogOpen, setFindPersonDialogOpen] = useState(false);
   const [isLoadSampleDataDialogOpen, setLoadSampleDataDialogOpen] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // ⬇️ WICHTIG: richtige Struktur (ValidationError[])
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   const [colors, setColors] = useState<AppColors>(() => {
     try {
@@ -119,13 +124,18 @@ const App: React.FC = () => {
         setValidationErrors(errors);
       }
 
+      setCurrentView('table');
+      setAppState('database');
       forceUpdate();
     }
   };
 
   const handleSavePerson = (personData: PersonFormData) => {
+    // ⬇️ Absicherung: Gender immer gültig (m/w/d), Default 'm'
+    const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' ? personData.gender : 'm';
+
     if (personData.id) {
-      const basePerson = { ...editingPerson!, ...personData };
+      const basePerson = { ...editingPerson!, ...personData, gender: safeGender };
 
       let newRingCode = basePerson.code;
       if (personData.inheritedFrom && personData.inheritedFrom !== basePerson.inheritedFrom) {
@@ -149,6 +159,7 @@ const App: React.FC = () => {
         code: '',
         ringCode: '',
         ringHistory: [],
+        gender: safeGender, // ⬅️ sicherstellen
       };
 
       const newCode = generatePersonCode(newPersonBase, people);
