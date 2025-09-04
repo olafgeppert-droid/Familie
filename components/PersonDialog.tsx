@@ -46,7 +46,8 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
     const [errors, setErrors] = useState<Record<string, string>>({});
     
     const potentialParents = useMemo(() => people.filter(p => !p.code.endsWith('x')), [people]);
-    const potentialPartners = useMemo(() => people.filter(p => !p.partnerId && p.id !== person?.id), [people, person]);
+    const potentialPartners = useMemo(() => people.filter(p => (p.id === person?.partnerId) || (!p.partnerId && p.id !== person?.id)), 
+[people, person]);
 
     useEffect(() => {
         if (isOpen) {
