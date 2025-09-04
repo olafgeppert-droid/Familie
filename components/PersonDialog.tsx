@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Person, PersonFormData, Gender } from '../types';
+import type { Person, PersonFormData } from '../types';
 import { CloseIcon, DeleteIcon, UserIcon } from './Icons';
 
 interface PersonDialogProps {
@@ -46,8 +46,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
     const [errors, setErrors] = useState<Record<string, string>>({});
     
     const potentialParents = useMemo(() => people.filter(p => !p.code.endsWith('x')), [people]);
-    const potentialPartners = useMemo(() => people.filter(p => (p.id === person?.partnerId) || (!p.partnerId && p.id !== person?.id)), 
-[people, person]);
+    const potentialPartners = useMemo(() => people.filter(p => !p.partnerId && p.id !== person?.id), [people, person]);
 
     useEffect(() => {
         if (isOpen) {
@@ -59,7 +58,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                 setFormData({
                     id: person.id,
                     name: person.name,
-                    gender: person.gender === 'w' ? 'f' : person.gender, // 🔥 w → f
+                    gender: person.gender, // 🚀 hier wird direkt das gespeicherte Gender übernommen
                     birthDate: person.birthDate,
                     deathDate: person.deathDate,
                     birthPlace: person.birthPlace,
@@ -72,7 +71,7 @@ export const PersonDialog: React.FC<PersonDialogProps> = ({ isOpen, onClose, onS
                     photoUrl: person.photoUrl,
                 });
             } else {
-                // Reset for new person
+                // Reset für neue Person
                 setFormData(getInitialFormData());
             }
             setErrors({});
