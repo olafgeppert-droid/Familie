@@ -261,9 +261,8 @@ export const TableView: React.FC<TableViewProps> = ({
               const partner = person.partnerId
                 ? peopleMap.get(person.partnerId)
                 : null;
-              const inheritedFrom = person.inheritedFrom
-                ? peopleMap.get(person.inheritedFrom)
-                : null;
+              const inheritedFrom = person.inheritedFrom || '';
+
               const generation = getGeneration(person.code);
 
               const rowStyle =
