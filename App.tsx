@@ -64,9 +64,6 @@ const App: React.FC = () => {
     }
   });
 
-  const [, setTick] = useState(0);
-  const forceUpdate = () => setTick((t) => t + 1);
-
   useEffect(() => {
     try {
       localStorage.setItem('appColors', JSON.stringify(colors));
@@ -115,16 +112,12 @@ const App: React.FC = () => {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
 
-      const errors = validateData(people.filter(p => p.id !== personToDelete.id));
-      if (errors.length > 0) {
-        setValidationErrors(errors);
-      } else {
-        setValidationErrors([]);
-      }
-      
+      const remainingPeople = people.filter(p => p.id !== personToDelete.id);
+      const errors = validateData(remainingPeople);
+      setValidationErrors(errors);
+
       setCurrentView('table');
       setAppState('database');
-      forceUpdate();
     }
   };
 
@@ -184,16 +177,11 @@ const App: React.FC = () => {
     }
 
     const errors = validateData(updatedPeople);
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-    } else {
-      setValidationErrors([]);
-    }
+    setValidationErrors(errors);
 
     setPersonDialogOpen(false);
     setCurrentView('table');
     setAppState('database');
-    forceUpdate();
   };
 
   const handleImport = async (file: File) => {
@@ -210,7 +198,6 @@ const App: React.FC = () => {
 
       setCurrentView('table');
       setAppState('database');
-      forceUpdate();
     } catch (error) {
       console.error(error);
       alert(
@@ -232,7 +219,6 @@ const App: React.FC = () => {
     setCurrentView('table');
     setAppState('database');
     setValidationErrors([]);
-    forceUpdate();
   };
 
   const handlePrint = () => {
@@ -256,12 +242,10 @@ const App: React.FC = () => {
     setCurrentView('table');
     setAppState('database');
 
-    const errors = validateData(state.people);
+    const errors = validateData(people);
     if (errors.length > 0) {
       setValidationErrors(errors);
     }
-
-    forceUpdate();
   };
 
   const filteredPeople = useMemo(() => {
