@@ -39,7 +39,6 @@ const defaultColors: AppColors = {
 
 const App: React.FC = () => {
   const { state, dispatch, undo, redo, canUndo, canRedo } = useFamilyData();
-  const { people } = state;
   const version = packageJson.version;
 
   const [appState, setAppState] = useState<'welcome' | 'info' | 'database'>('welcome');
@@ -65,7 +64,7 @@ const App: React.FC = () => {
     }
   });
 
-  // 🔄 Speichern der Colors im localStorage
+  // 🔽 Speichern der Colors im localStorage
   useEffect(() => {
     try {
       localStorage.setItem('appColors', JSON.stringify(colors));
@@ -74,23 +73,34 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
+  // 🔽 Validation nach Redux-Updates
+  useEffect(() => {
+    const errors = validateData(state.people);
+    setValidationErrors(errors);
+    
+    // 🔽 IMMER zur Tabellenansicht zurückkehren nach Datenänderungen
+    if (appState === 'database' && currentView !== 'table') {
+      setCurrentView('table');
+    }
+  }, [state.people, appState, currentView]);
+
   const handleAddPerson = () => {
     setEditingPerson(null);
     setPersonDialogOpen(true);
   };
 
-  const handleEditPerson = (person: Person) => {
+  const handleEditPerson = useCallback((person: Person) => {
     setEditingPerson(person);
     setPersonDialogOpen(true);
-  };
+  }, []);
 
-  const handleFindAndOpenForEditing = (term: string) => {
+  const handleFindAndOpenForEditing = useCallback((term: string) => {
     if (!term.trim()) {
       alert('Bitte gib einen Namen oder Code ein.');
       return;
     }
     const lowerCaseTerm = term.toLowerCase();
-    const foundPerson = people.find(
+    const foundPerson = state.people.find(
       (p) =>
         p.name.toLowerCase().includes(lowerCaseTerm) ||
         p.code.toLowerCase().includes(lowerCaseTerm)
@@ -102,32 +112,21 @@ const App: React.FC = () => {
       alert(`Keine Person mit dem Namen oder Code "${term}" gefunden.`);
     }
     setFindPersonDialogOpen(false);
-  };
+  }, [state.people, handleEditPerson]);
 
-  const handleDeleteRequest = (person: Person) => {
+  const handleDeleteRequest = useCallback((person: Person) => {
     setPersonToDelete(person);
     setPersonDialogOpen(false);
-  };
+  }, []);
 
-  const confirmDeletePerson = () => {
+  const confirmDeletePerson = useCallback(() => {
     if (personToDelete) {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
-
-      // Validation nach Löschung
-      setTimeout(() => {
-        const errors = validateData(state.people);
-        if (errors.length > 0) {
-          setValidationErrors(errors);
-        }
-        // 🔽 WICHTIG: Erst nach State-Update die View aktualisieren
-        setCurrentView('table');
-        setAppState('database');
-      }, 100);
     }
-  };
+  }, [personToDelete, dispatch]);
 
-  const handleSavePerson = (personData: PersonFormData) => {
+  const handleSavePerson = useCallback((personData: PersonFormData) => {
     const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' 
       ? personData.gender 
       : 'm';
@@ -138,7 +137,7 @@ const App: React.FC = () => {
 
       let newRingCode = basePerson.code;
       if (personData.inheritedFrom && personData.inheritedFrom !== basePerson.inheritedFrom) {
-        const inheritedFromPerson = people.find((p) => p.code === personData.inheritedFrom);
+        const inheritedFromPerson = state.people.find((p) => p.code === personData.inheritedFrom);
         if (inheritedFromPerson) {
           newRingCode = `${inheritedFromPerson.ringCode} → ${basePerson.code}`;
         }
@@ -162,18 +161,18 @@ const App: React.FC = () => {
         gender: safeGender,
       };
 
-      const newCode = generatePersonCode(newPersonBase, people);
+      const newCode = generatePersonCode(newPersonBase, state.people);
       newPersonBase.code = newCode;
       newPersonBase.ringCode = newCode;
 
       if (personData.inheritedFrom) {
-        const inheritedFromPerson = people.find((p) => p.code === personData.inheritedFrom);
+        const inheritedFromPerson = state.people.find((p) => p.code === personData.inheritedFrom);
         if (inheritedFromPerson) {
           newPersonBase.ringCode = `${inheritedFromPerson.ringCode} → ${newPersonBase.code}`;
         }
       }
 
-      const { updates } = getCodeRecalculation(newPersonBase, people);
+      const { updates } = getCodeRecalculation(newPersonBase, state.people);
 
       if (updates.length > 0) {
         dispatch({
@@ -185,36 +184,15 @@ const App: React.FC = () => {
       }
     }
 
-    // 🔽 WICHTIG: Dialog zuerst schließen, dann andere States aktualisieren
+    // Dialog schließen - Validation erfolgt automatisch durch useEffect
     setPersonDialogOpen(false);
-    
-    // Validation und View-Update mit Verzögerung
-    setTimeout(() => {
-      const errors = validateData(state.people);
-      if (errors.length > 0) {
-        setValidationErrors(errors);
-      }
-      
-      // Zur Tabellenansicht zurückkehren
-      setCurrentView('table');
-      setAppState('database');
-    }, 50);
-  };
+  }, [editingPerson, state.people, dispatch]);
 
-  const handleImport = async (file: File) => {
+  const handleImport = useCallback(async (file: File) => {
     try {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
-
-      const errors = validateData(importedPeople);
-      if (errors.length > 0) {
-        setValidationErrors(errors);
-      } else {
-        alert('Daten erfolgreich importiert!');
-      }
-
-      setCurrentView('table');
-      setAppState('database');
+      alert('Daten erfolgreich importiert!');
     } catch (error) {
       console.error(error);
       alert(
@@ -223,63 +201,52 @@ const App: React.FC = () => {
         }`
       );
     }
-  };
+  }, [dispatch]);
 
-  const handleExport = (format: 'json' | 'csv') => {
-    exportData(people, format);
-  };
+  const handleExport = useCallback((format: 'json' | 'csv') => {
+    exportData(state.people, format);
+  }, [state.people]);
 
-  const confirmReset = () => {
+  const confirmReset = useCallback(() => {
     dispatch({ type: 'RESET_PERSON_DATA' });
     setResetDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('table');
-    setAppState('database');
-  };
+  }, [dispatch]);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     const printDateElement = document.querySelector('#printable-area .print-header p');
     if (printDateElement) {
       printDateElement.textContent = `Stand: ${new Date().toLocaleString('de-DE')} | Version ${version}`;
     }
     printView('printable-area');
-  };
+  }, [version]);
 
-  const handleLoadSampleDataRequest = () => {
+  const handleLoadSampleDataRequest = useCallback(() => {
     setSettingsDialogOpen(false);
     setLoadSampleDataDialogOpen(true);
-  };
+  }, []);
 
-  const confirmLoadSampleData = () => {
+  const confirmLoadSampleData = useCallback(() => {
     dispatch({ type: 'LOAD_SAMPLE_DATA' });
     setLoadSampleDataDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('table');
-    setAppState('database');
-
-    setTimeout(() => {
-      const errors = validateData(state.people);
-      if (errors.length > 0) {
-        setValidationErrors(errors);
-      }
-    }, 100);
-  };
+  }, [dispatch]);
 
   const filteredPeople = useMemo(() => {
-    if (!searchTerm) return people;
-    return people.filter(
+    if (!searchTerm) return state.people;
+    return state.people.filter(
       (p) =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.code.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [people, searchTerm]);
+  }, [state.people, searchTerm]);
 
   const MainView = useCallback(() => {
     switch (currentView) {
       case 'tree':
-        return <TreeView people={people} onEdit={handleEditPerson} />;
+        return <TreeView people={state.people} onEdit={handleEditPerson} />;
       case 'stats':
-        return <StatisticsView people={people} />;
+        return <StatisticsView people={state.people} />;
       case 'table':
       default:
         return (
@@ -290,7 +257,7 @@ const App: React.FC = () => {
           />
         );
     }
-  }, [currentView, people, filteredPeople, searchTerm]);
+  }, [currentView, state.people, filteredPeople, searchTerm, handleEditPerson]);
 
   if (appState === 'welcome') {
     return (
@@ -340,7 +307,7 @@ const App: React.FC = () => {
                   Wappenringe der Familie GEPPERT
                 </h1>
                 <p className="text-center text-sm"></p>
-              div>
+              </div>
               <MainView />
             </div>
           </main>
@@ -353,7 +320,7 @@ const App: React.FC = () => {
         onSave={handleSavePerson}
         onDelete={handleDeleteRequest}
         person={editingPerson}
-        people={people}
+        people={state.people}
       />
 
       <HelpDialog isOpen={isHelpDialogOpen} onClose={() => setHelpDialogOpen(false)} />
