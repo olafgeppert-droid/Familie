@@ -1,7 +1,7 @@
 // src/services/validateData.ts
 
 import { Person } from '../types';
-import { getGeneration, generatePersonCode } from './familyTreeService';
+import { getGeneration } from './familyTreeService';
 
 export type ValidationError = {
   personId: string;
@@ -51,11 +51,20 @@ export function validateData(people: Person[]): ValidationError[] {
     }
 
     // 3. Generationsprüfung
-    const gen = getGeneration(p, people);
-    if (p.generation !== gen) {
+    try {
+      const gen = getGeneration(p, people);
+      if (p.generation !== gen) {
+        errors.push({
+          personId: p.id,
+          message: `Generationsnummer ${p.generation} von ${p.name} ist inkonsistent (erwartet: ${gen}).`,
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      // Fehler abfangen falls getGeneration fehlschlägt
       errors.push({
         personId: p.id,
-        message: `Generationsnummer ${p.generation} von ${p.name} ist inkonsistent (erwartet: ${gen}).`,
+        message: `Generationsberechnung für ${p.name} fehlgeschlagen.`,
         severity: 'error',
       });
     }
@@ -75,7 +84,6 @@ export function validateData(people: Person[]): ValidationError[] {
       if (p.parentId) {
         const parent = people.find(pp => pp.id === p.parentId);
         if (parent?.ringCode) {
-          // Kleiner Fehler in der Originalversion behoben: Pfeil sollte mit Leerzeichen sein
           const expectedPrefix = `${parent.ringCode} →`;
           if (!p.ringCode.startsWith(expectedPrefix)) {
             errors.push({
