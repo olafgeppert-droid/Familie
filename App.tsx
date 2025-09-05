@@ -74,6 +74,7 @@ const App: React.FC = () => {
 
   // Dieser useEffect-Hook führt die Validierung IMMER aus, wenn sich der people-State ändert.
   // Das ist der zuverlässigste Weg, um nach einer Speicherung oder Löschung zu validieren.
+  // ACHTUNG: Die Abhängigkeit von `validationErrors` wurde entfernt, um die Endlosschleife zu verhindern.
   useEffect(() => {
     const errors = validateData(state.people);
     setValidationErrors(errors);
