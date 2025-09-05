@@ -35,11 +35,9 @@ const defaultColors: AppColors = {
 };
 
 const App: React.FC = () => {
-  // ✅ Redux State Management
   const { state, dispatch, undo, redo, canUndo, canRedo } = useFamilyData();
   const version = packageJson.version;
 
-  // ✅ App State Management
   const [appState, setAppState] = useState<'welcome' | 'info' | 'database'>('welcome');
   const [currentView, setCurrentView] = useState<View>('table');
   const [isPersonDialogOpen, setPersonDialogOpen] = useState(false);
@@ -53,7 +51,6 @@ const App: React.FC = () => {
   const [isLoadSampleDataDialogOpen, setLoadSampleDataDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
-  // ✅ Colors with localStorage persistence (safe implementation)
   const [colors, setColors] = useState<AppColors>(() => {
     try {
       const storedColors = localStorage.getItem('appColors');
@@ -64,7 +61,6 @@ const App: React.FC = () => {
     }
   });
 
-  // ✅ Save colors to localStorage (safe with error handling)
   useEffect(() => {
     try {
       localStorage.setItem('appColors', JSON.stringify(colors));
@@ -73,7 +69,7 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
-  // ✅ Validation after data changes - SAFE implementation
+  // ✅ KORRIGIERT: Validation ohne View-Änderung
   useEffect(() => {
     if (appState === 'database') {
       try {
@@ -81,7 +77,6 @@ const App: React.FC = () => {
         setValidationErrors(errors);
       } catch (error) {
         console.error('Validation error:', error);
-        // ✅ Safe error state without breaking the app
         setValidationErrors([{
           personId: 'validation-error',
           message: 'Fehler bei der Datenvalidierung',
@@ -89,12 +84,10 @@ const App: React.FC = () => {
         }]);
       }
     } else {
-      // ✅ Clear validation errors when not in database mode
       setValidationErrors([]);
     }
-  }, [state.people, appState]); // ✅ CORRECT dependencies - no loops
+  }, [state.people, appState]);
 
-  // ✅ Simple handler functions (no unnecessary useCallback)
   const handleAddPerson = () => {
     setEditingPerson(null);
     setPersonDialogOpen(true);
@@ -127,26 +120,24 @@ const App: React.FC = () => {
 
   const handleDeleteRequest = (person: Person) => {
     setPersonToDelete(person);
-    setPersonDialogOpen(false); // ✅ Dialog sofort schließen
+    setPersonDialogOpen(false);
   };
 
   const confirmDeletePerson = () => {
     if (personToDelete) {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
-      // ✅ EXPLIZIT zur Tabellenansicht zurückkehren
+      // ✅ Zur Tabellenansicht zurückkehren
       setCurrentView('table');
     }
   };
 
   const handleSavePerson = (personData: PersonFormData) => {
-    // ✅ Safe gender handling
     const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' 
       ? personData.gender 
       : 'm';
 
     if (personData.id) {
-      // ✅ Bearbeiten einer bestehenden Person
       const basePerson = { ...editingPerson!, ...personData, gender: safeGender };
 
       let newRingCode = basePerson.code;
@@ -164,7 +155,6 @@ const App: React.FC = () => {
       const updatedPerson: Person = { ...basePerson, ringCode: newRingCode };
       dispatch({ type: 'UPDATE_PERSON', payload: updatedPerson });
     } else {
-      // ✅ Hinzufügen einer neuen Person
       const tempId = `temp-${Date.now()}`;
       const newPersonBase: Person = {
         ...personData,
@@ -198,16 +188,15 @@ const App: React.FC = () => {
       }
     }
 
-    // ✅ DIALOG ZUERST schließen, DANN View wechseln
     setPersonDialogOpen(false);
-    setCurrentView('table'); // ✅ ABSOLUT SICHER: Zurück zur Tabelle
+    setCurrentView('table'); // ✅ Zur Tabellenansicht zurückkehren
   };
 
   const handleImport = async (file: File) => {
     try {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
-      setCurrentView('table'); // ✅ Zur Tabelle nach Import
+      setCurrentView('table');
       setAppState('database');
       alert('Daten erfolgreich importiert!');
     } catch (error) {
@@ -224,7 +213,7 @@ const App: React.FC = () => {
     dispatch({ type: 'RESET_PERSON_DATA' });
     setResetDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('table'); // ✅ Zur Tabelle nach Reset
+    setCurrentView('table');
     setAppState('database');
   };
 
@@ -245,11 +234,10 @@ const App: React.FC = () => {
     dispatch({ type: 'LOAD_SAMPLE_DATA' });
     setLoadSampleDataDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('table'); // ✅ Zur Tabelle nach Laden
+    setCurrentView('table');
     setAppState('database');
   };
 
-  // ✅ Optimierte Filterung mit useMemo
   const filteredPeople = useMemo(() => {
     if (!searchTerm) return state.people;
     const lowerSearchTerm = searchTerm.toLowerCase();
@@ -260,7 +248,6 @@ const App: React.FC = () => {
     );
   }, [state.people, searchTerm]);
 
-  // ✅ MainView Komponente mit useMemo (performance-optimiert)
   const MainViewComponent = useMemo(() => {
     switch (currentView) {
       case 'tree':
@@ -279,7 +266,6 @@ const App: React.FC = () => {
     }
   }, [currentView, state.people, filteredPeople, searchTerm]);
 
-  // ✅ App State Rendering
   if (appState === 'welcome') {
     return (
       <WelcomeScreen
@@ -294,7 +280,6 @@ const App: React.FC = () => {
     return <WappenInfo onShowDatabase={() => setAppState('database')} />;
   }
 
-  // ✅ Main database view
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Header version={version} color={colors.header} />
@@ -336,7 +321,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* ✅ Dialogs */}
       <PersonDialog
         isOpen={isPersonDialogOpen}
         onClose={() => setPersonDialogOpen(false)}
