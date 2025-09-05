@@ -75,6 +75,7 @@ export function validateData(people: Person[]): ValidationError[] {
       if (p.parentId) {
         const parent = people.find(pp => pp.id === p.parentId);
         if (parent?.ringCode) {
+          // Kleiner Fehler in der Originalversion behoben: Pfeil sollte mit Leerzeichen sein
           const expectedPrefix = `${parent.ringCode} →`;
           if (!p.ringCode.startsWith(expectedPrefix)) {
             errors.push({
