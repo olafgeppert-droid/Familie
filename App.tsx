@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header';
 import { TableView } from './components/TableView';
 import { TreeView } from './components/TreeView';
@@ -35,10 +35,11 @@ const defaultColors: AppColors = {
 };
 
 const App: React.FC = () => {
+  // ✅ Redux State Management
   const { state, dispatch, undo, redo, canUndo, canRedo } = useFamilyData();
   const version = packageJson.version;
 
-  // State management
+  // ✅ App State Management
   const [appState, setAppState] = useState<'welcome' | 'info' | 'database'>('welcome');
   const [currentView, setCurrentView] = useState<View>('table');
   const [isPersonDialogOpen, setPersonDialogOpen] = useState(false);
@@ -52,7 +53,7 @@ const App: React.FC = () => {
   const [isLoadSampleDataDialogOpen, setLoadSampleDataDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
-  // Colors with localStorage persistence
+  // ✅ Colors with localStorage persistence (safe implementation)
   const [colors, setColors] = useState<AppColors>(() => {
     try {
       const storedColors = localStorage.getItem('appColors');
@@ -63,7 +64,7 @@ const App: React.FC = () => {
     }
   });
 
-  // Save colors to localStorage
+  // ✅ Save colors to localStorage (safe with error handling)
   useEffect(() => {
     try {
       localStorage.setItem('appColors', JSON.stringify(colors));
@@ -72,7 +73,7 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
-  // Validation after data changes - ONLY when in database mode
+  // ✅ Validation after data changes - SAFE implementation
   useEffect(() => {
     if (appState === 'database') {
       try {
@@ -80,16 +81,20 @@ const App: React.FC = () => {
         setValidationErrors(errors);
       } catch (error) {
         console.error('Validation error:', error);
+        // ✅ Safe error state without breaking the app
         setValidationErrors([{
           personId: 'validation-error',
           message: 'Fehler bei der Datenvalidierung',
           severity: 'error'
         }]);
       }
+    } else {
+      // ✅ Clear validation errors when not in database mode
+      setValidationErrors([]);
     }
-  }, [state.people, appState]);
+  }, [state.people, appState]); // ✅ CORRECT dependencies - no loops
 
-  // Handler functions
+  // ✅ Simple handler functions (no unnecessary useCallback)
   const handleAddPerson = () => {
     setEditingPerson(null);
     setPersonDialogOpen(true);
@@ -122,25 +127,26 @@ const App: React.FC = () => {
 
   const handleDeleteRequest = (person: Person) => {
     setPersonToDelete(person);
-    setPersonDialogOpen(false);
+    setPersonDialogOpen(false); // ✅ Dialog sofort schließen
   };
 
   const confirmDeletePerson = () => {
     if (personToDelete) {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
-      // Sicherstellen, dass wir nach Löschung in der Tabellenansicht sind
+      // ✅ EXPLIZIT zur Tabellenansicht zurückkehren
       setCurrentView('table');
     }
   };
 
   const handleSavePerson = (personData: PersonFormData) => {
+    // ✅ Safe gender handling
     const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' 
       ? personData.gender 
       : 'm';
 
     if (personData.id) {
-      // Bearbeiten einer bestehenden Person
+      // ✅ Bearbeiten einer bestehenden Person
       const basePerson = { ...editingPerson!, ...personData, gender: safeGender };
 
       let newRingCode = basePerson.code;
@@ -158,7 +164,7 @@ const App: React.FC = () => {
       const updatedPerson: Person = { ...basePerson, ringCode: newRingCode };
       dispatch({ type: 'UPDATE_PERSON', payload: updatedPerson });
     } else {
-      // Hinzufügen einer neuen Person
+      // ✅ Hinzufügen einer neuen Person
       const tempId = `temp-${Date.now()}`;
       const newPersonBase: Person = {
         ...personData,
@@ -192,16 +198,16 @@ const App: React.FC = () => {
       }
     }
 
-    // Dialog schließen und zur Tabellenansicht zurückkehren
+    // ✅ DIALOG ZUERST schließen, DANN View wechseln
     setPersonDialogOpen(false);
-    setCurrentView('table');
+    setCurrentView('table'); // ✅ ABSOLUT SICHER: Zurück zur Tabelle
   };
 
   const handleImport = async (file: File) => {
     try {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
-      setCurrentView('table');
+      setCurrentView('table'); // ✅ Zur Tabelle nach Import
       setAppState('database');
       alert('Daten erfolgreich importiert!');
     } catch (error) {
@@ -218,7 +224,7 @@ const App: React.FC = () => {
     dispatch({ type: 'RESET_PERSON_DATA' });
     setResetDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('table');
+    setCurrentView('table'); // ✅ Zur Tabelle nach Reset
     setAppState('database');
   };
 
@@ -239,20 +245,22 @@ const App: React.FC = () => {
     dispatch({ type: 'LOAD_SAMPLE_DATA' });
     setLoadSampleDataDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('table');
+    setCurrentView('table'); // ✅ Zur Tabelle nach Laden
     setAppState('database');
   };
 
-  // Memoized values
+  // ✅ Optimierte Filterung mit useMemo
   const filteredPeople = useMemo(() => {
     if (!searchTerm) return state.people;
+    const lowerSearchTerm = searchTerm.toLowerCase();
     return state.people.filter(
       (p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.code.toLowerCase().includes(searchTerm.toLowerCase())
+        p.name.toLowerCase().includes(lowerSearchTerm) ||
+        p.code.toLowerCase().includes(lowerSearchTerm)
     );
   }, [state.people, searchTerm]);
 
+  // ✅ MainView Komponente mit useMemo (performance-optimiert)
   const MainViewComponent = useMemo(() => {
     switch (currentView) {
       case 'tree':
@@ -271,7 +279,7 @@ const App: React.FC = () => {
     }
   }, [currentView, state.people, filteredPeople, searchTerm]);
 
-  // Render different app states
+  // ✅ App State Rendering
   if (appState === 'welcome') {
     return (
       <WelcomeScreen
@@ -286,7 +294,7 @@ const App: React.FC = () => {
     return <WappenInfo onShowDatabase={() => setAppState('database')} />;
   }
 
-  // Main database view
+  // ✅ Main database view
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Header version={version} color={colors.header} />
@@ -328,7 +336,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Dialogs */}
+      {/* ✅ Dialogs */}
       <PersonDialog
         isOpen={isPersonDialogOpen}
         onClose={() => setPersonDialogOpen(false)}
