@@ -50,10 +50,10 @@ export function validateData(people: Person[]): ValidationError[] {
       }
     }
 
-    // 3. Generationsprüfung
+    // 3. Generationsprüfung - ✅ KORRIGIERT
     try {
-      const gen = getGeneration(p, people);
-      if (p.generation !== gen) {
+      const gen = getGeneration(p.code); // ✅ Nur den Code übergeben
+      if (p.generation !== undefined && p.generation !== gen) {
         errors.push({
           personId: p.id,
           message: `Generationsnummer ${p.generation} von ${p.name} ist inkonsistent (erwartet: ${gen}).`,
@@ -61,7 +61,6 @@ export function validateData(people: Person[]): ValidationError[] {
         });
       }
     } catch (error) {
-      // Fehler abfangen falls getGeneration fehlschlägt
       errors.push({
         personId: p.id,
         message: `Generationsberechnung für ${p.name} fehlgeschlagen.`,
@@ -84,7 +83,7 @@ export function validateData(people: Person[]): ValidationError[] {
       if (p.parentId) {
         const parent = people.find(pp => pp.id === p.parentId);
         if (parent?.ringCode) {
-          const expectedPrefix = `${parent.ringCode} →`;
+          const expectedPrefix = `${parent.ringCode} → `;
           if (!p.ringCode.startsWith(expectedPrefix)) {
             errors.push({
               personId: p.id,
