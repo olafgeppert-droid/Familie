@@ -126,7 +126,7 @@ const App: React.FC = () => {
 
       setCurrentView('table');
       setAppState('database');
-      forceUpdate();
+      
     }
   };
 
