@@ -40,7 +40,7 @@ const defaultColors: AppColors = {
 const App: React.FC = () => {
   const { state, dispatch, undo, redo, canUndo, canRedo } = useFamilyData();
   const { people } = state;
-  const version = packageJson.version; // 🔽 Version aus package.json verwenden
+  const version = packageJson.version;
 
   const [appState, setAppState] = useState<'welcome' | 'info' | 'database'>('welcome');
   const [currentView, setCurrentView] = useState<View>('table');
@@ -53,8 +53,6 @@ const App: React.FC = () => {
   const [isResetDialogOpen, setResetDialogOpen] = useState(false);
   const [isFindPersonDialogOpen, setFindPersonDialogOpen] = useState(false);
   const [isLoadSampleDataDialogOpen, setLoadSampleDataDialogOpen] = useState(false);
-
-  // ⬇️ WICHTIG: richtige Struktur (ValidationError[])
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   const [colors, setColors] = useState<AppColors>(() => {
@@ -67,10 +65,7 @@ const App: React.FC = () => {
     }
   });
 
-  // 🔄 forceUpdate Hook für sanfte Aktualisierung
-  const [, setTick] = useState(0);
-  const forceUpdate = useCallback(() => setTick((t) => t + 1), []);
-
+  // 🔄 Speichern der Colors im localStorage
   useEffect(() => {
     try {
       localStorage.setItem('appColors', JSON.stringify(colors));
@@ -119,23 +114,26 @@ const App: React.FC = () => {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
 
-      const errors = validateData(state.people);
-      if (errors.length > 0) {
-        setValidationErrors(errors);
-      }
-
-      // 🔽 Fokus auf die Tabelle setzen und erneut rendern
-      setCurrentView('table');
-      setAppState('database');
-      forceUpdate();
+      // Validation nach Löschung
+      setTimeout(() => {
+        const errors = validateData(state.people);
+        if (errors.length > 0) {
+          setValidationErrors(errors);
+        }
+        // 🔽 WICHTIG: Erst nach State-Update die View aktualisieren
+        setCurrentView('table');
+        setAppState('database');
+      }, 100);
     }
   };
 
   const handleSavePerson = (personData: PersonFormData) => {
-    // ⬇️ Absicherung: Gender immer gültig (m/w/d), Default 'm'
-    const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' ? personData.gender : 'm';
+    const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' 
+      ? personData.gender 
+      : 'm';
 
     if (personData.id) {
+      // Bearbeiten einer bestehenden Person
       const basePerson = { ...editingPerson!, ...personData, gender: safeGender };
 
       let newRingCode = basePerson.code;
@@ -153,6 +151,7 @@ const App: React.FC = () => {
       const updatedPerson: Person = { ...basePerson, ringCode: newRingCode };
       dispatch({ type: 'UPDATE_PERSON', payload: updatedPerson });
     } else {
+      // Hinzufügen einer neuen Person
       const tempId = `temp-${Date.now()}`;
       const newPersonBase: Person = {
         ...personData,
@@ -160,7 +159,7 @@ const App: React.FC = () => {
         code: '',
         ringCode: '',
         ringHistory: [],
-        gender: safeGender, // ⬅️ sicherstellen
+        gender: safeGender,
       };
 
       const newCode = generatePersonCode(newPersonBase, people);
@@ -186,16 +185,20 @@ const App: React.FC = () => {
       }
     }
 
-    const errors = validateData(state.people);
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-    }
-
+    // 🔽 WICHTIG: Dialog zuerst schließen, dann andere States aktualisieren
     setPersonDialogOpen(false);
-    // 🔽 Fokus auf die Tabelle setzen und erneut rendern
-    setCurrentView('table');
-    setAppState('database');
-    forceUpdate();
+    
+    // Validation und View-Update mit Verzögerung
+    setTimeout(() => {
+      const errors = validateData(state.people);
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      }
+      
+      // Zur Tabellenansicht zurückkehren
+      setCurrentView('table');
+      setAppState('database');
+    }, 50);
   };
 
   const handleImport = async (file: File) => {
@@ -212,7 +215,6 @@ const App: React.FC = () => {
 
       setCurrentView('table');
       setAppState('database');
-      forceUpdate();
     } catch (error) {
       console.error(error);
       alert(
@@ -227,14 +229,12 @@ const App: React.FC = () => {
     exportData(people, format);
   };
 
-  // ⬇️ Fix: Personendaten wirklich leeren + zur TableView wechseln
   const confirmReset = () => {
     dispatch({ type: 'RESET_PERSON_DATA' });
     setResetDialogOpen(false);
     setSearchTerm('');
     setCurrentView('table');
     setAppState('database');
-    forceUpdate();
   };
 
   const handlePrint = () => {
@@ -253,17 +253,16 @@ const App: React.FC = () => {
   const confirmLoadSampleData = () => {
     dispatch({ type: 'LOAD_SAMPLE_DATA' });
     setLoadSampleDataDialogOpen(false);
-
     setSearchTerm('');
     setCurrentView('table');
     setAppState('database');
 
-    const errors = validateData(state.people);
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-    }
-
-    forceUpdate();
+    setTimeout(() => {
+      const errors = validateData(state.people);
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      }
+    }, 100);
   };
 
   const filteredPeople = useMemo(() => {
@@ -341,7 +340,7 @@ const App: React.FC = () => {
                   Wappenringe der Familie GEPPERT
                 </h1>
                 <p className="text-center text-sm"></p>
-              </div>
+              div>
               <MainView />
             </div>
           </main>
