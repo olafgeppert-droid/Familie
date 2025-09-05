@@ -400,4 +400,3 @@ export const TableView: React.FC<TableViewProps> = ({
     </div>
   );
 };
-
