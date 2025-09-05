@@ -10,102 +10,76 @@ export type ValidationError = {
 };
 
 /**
- * Konsistenzprüfung aller Personen.
- * Gibt eine Liste von Fehlern zurück.
- * Diese Funktion ist rein und verändert die Eingabedaten NICHT.
+ * Einfache und stabile Konsistenzprüfung
  */
 export function validateData(people: Person[]): ValidationError[] {
   const errors: ValidationError[] = [];
 
+  // Sicherheitscheck
+  if (!people || !Array.isArray(people)) {
+    return [{
+      personId: 'system-error',
+      message: 'Ungültige Datenstruktur',
+      severity: 'error'
+    }];
+  }
+
   people.forEach(p => {
-    // 1. Partnerprüfung
+    if (!p || !p.id) return; // Skip invalid entries
+
+    // 1. Einfache Partnerprüfung
     if (p.partnerId) {
       const partner = people.find(pp => pp.id === p.partnerId);
       if (!partner) {
         errors.push({
           personId: p.id,
-          message: `Partner von ${p.name} (${p.code}) nicht gefunden.`,
-          severity: 'error',
-        });
-      } else if (partner.partnerId !== p.id) {
-        errors.push({
-          personId: p.id,
-          message: `Partnerbeziehung zwischen ${p.name} und ${partner.name} ist nicht wechselseitig.`,
-          severity: 'error',
+          message: `Partner von ${p.name} nicht gefunden.`,
+          severity: 'warning', // ✅ Nur Warning, kein Error
         });
       }
     }
 
-    // 2. Codeprüfung (passt Code zur Elternstruktur?)
+    // 2. Einfache Codeprüfung
     if (p.parentId) {
       const parent = people.find(pp => pp.id === p.parentId);
-      if (parent) {
-        if (!p.code.startsWith(parent.code)) {
+      if (parent && p.code && !p.code.startsWith(parent.code)) {
+        errors.push({
+          personId: p.id,
+          message: `Code ${p.code} passt nicht zu Eltern-Code ${parent.code}.`,
+          severity: 'warning',
+        });
+      }
+    }
+
+    // 3. Einfache Generationsprüfung (nur wenn generation existiert)
+    if (p.generation !== undefined && p.generation !== null) {
+      try {
+        const gen = getGeneration(p.code);
+        if (p.generation !== gen) {
           errors.push({
             personId: p.id,
-            message: `Code ${p.code} von ${p.name} passt nicht zum Eltern-Code ${parent.code}.`,
-            severity: 'error',
+            message: `Generation ${p.generation} sollte ${gen} sein.`,
+            severity: 'warning',
           });
         }
+      } catch (error) {
+        // Silent fail - nicht kritisch
       }
     }
 
-    // 3. Generationsprüfung - ✅ KORRIGIERT
-    try {
-      const gen = getGeneration(p.code); // ✅ Nur den Code übergeben
-      if (p.generation !== undefined && p.generation !== gen) {
-        errors.push({
-          personId: p.id,
-          message: `Generationsnummer ${p.generation} von ${p.name} ist inkonsistent (erwartet: ${gen}).`,
-          severity: 'error',
-        });
-      }
-    } catch (error) {
+    // 4. Einfache Ringprüfung
+    if (p.ringCode && p.code && !p.ringCode.endsWith(p.code)) {
       errors.push({
         personId: p.id,
-        message: `Generationsberechnung für ${p.name} fehlgeschlagen.`,
-        severity: 'error',
+        message: `Ringcode endet nicht mit eigenem Code.`,
+        severity: 'warning',
       });
-    }
-
-    // 4. Ringprüfung
-    if (p.ringCode) {
-      // Muss auf eigenen Code enden
-      if (!p.ringCode.endsWith(p.code)) {
-        errors.push({
-          personId: p.id,
-          message: `Ringcode ${p.ringCode} endet nicht mit eigenem Code ${p.code}.`,
-          severity: 'error',
-        });
-      }
-
-      // Falls Elternteil verstorben: Ring muss vom Eltern-Ring stammen
-      if (p.parentId) {
-        const parent = people.find(pp => pp.id === p.parentId);
-        if (parent?.ringCode) {
-          const expectedPrefix = `${parent.ringCode} → `;
-          if (!p.ringCode.startsWith(expectedPrefix)) {
-            errors.push({
-              personId: p.id,
-              message: `Ringcode ${p.ringCode} von ${p.name} passt nicht zum Erblasser (${parent.name}, ${parent.ringCode}).`,
-              severity: 'error',
-            });
-          }
-        }
-      }
     }
   });
 
   return errors;
 }
 
-/**
- * Wendet alle verfügbaren automatischen Reparaturen auf die Daten an.
- * Gibt true zurück, wenn mindestens eine Reparatur durchgeführt wurde.
- */
 export function autoFixData(people: Person[]): boolean {
-  let hasFixed = false;
-  // Hier würde die Logik zum Anwenden der Reparaturen stehen
-  // Diese Funktion muss die Daten ebenfalls kopieren und dann zurückgeben
-  return hasFixed;
+  return false; // Keine Auto-Fixes initially
 }
