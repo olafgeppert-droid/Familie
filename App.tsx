@@ -18,10 +18,7 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { printView } from './services/printService';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { WappenInfo } from './components/WappenInfo';
-import { validateData } from './services/validateData';
-import { ValidationDialog } from './components/ValidationDialog';
 
-import type { ValidationError } from './services/validateData';
 import packageJson from './package.json';
 
 export interface AppColors {
@@ -49,7 +46,6 @@ const App: React.FC = () => {
   const [isResetDialogOpen, setResetDialogOpen] = useState(false);
   const [isFindPersonDialogOpen, setFindPersonDialogOpen] = useState(false);
   const [isLoadSampleDataDialogOpen, setLoadSampleDataDialogOpen] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   const [colors, setColors] = useState<AppColors>(() => {
     try {
@@ -69,24 +65,7 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
-  // ✅ Validation wieder aktiviert (jetzt korrekt)
-  useEffect(() => {
-    if (appState === 'database') {
-      try {
-        const errors = validateData(state.people);
-        setValidationErrors(errors);
-      } catch (error) {
-        console.error('Validation error:', error);
-        setValidationErrors([{
-          personId: 'validation-error',
-          message: 'Fehler bei der Datenvalidierung',
-          severity: 'error'
-        }]);
-      }
-    } else {
-      setValidationErrors([]);
-    }
-  }, [state.people, appState]);
+  // ✅ ENTFERNT: Validation useEffect komplett entfernt
 
   const handleAddPerson = () => {
     setEditingPerson(null);
@@ -374,12 +353,6 @@ const App: React.FC = () => {
         isOpen={isFindPersonDialogOpen}
         onClose={() => setFindPersonDialogOpen(false)}
         onFind={handleFindAndOpenForEditing}
-      />
-
-      <ValidationDialog
-        isOpen={validationErrors.length > 0}
-        errors={validationErrors}
-        onClose={() => setValidationErrors([])}
       />
     </div>
   );
