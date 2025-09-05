@@ -21,10 +21,8 @@ import { WappenInfo } from './components/WappenInfo';
 import { validateData } from './services/validateData';
 import { ValidationDialog } from './components/ValidationDialog';
 
-// ⬇️ WICHTIG: korrekte Typen für Validierungsfehler
 import type { ValidationError } from './services/validateData';
 
-// 🔽 Version aus package.json importieren
 import packageJson from './package.json';
 
 export interface AppColors {
@@ -33,14 +31,14 @@ export interface AppColors {
 }
 
 const defaultColors: AppColors = {
-  header: '#1665d8', // brand-header
-  sidebar: '#cae2fc', // brand-sidebar
+  header: '#1665d8',
+  sidebar: '#cae2fc',
 };
 
 const App: React.FC = () => {
   const { state, dispatch, undo, redo, canUndo, canRedo } = useFamilyData();
   const { people } = state;
-  const version = packageJson.version; // 🔽 Version aus package.json verwenden
+  const version = packageJson.version;
 
   const [appState, setAppState] = useState<'welcome' | 'info' | 'database'>('welcome');
   const [currentView, setCurrentView] = useState<View>('table');
@@ -54,7 +52,6 @@ const App: React.FC = () => {
   const [isFindPersonDialogOpen, setFindPersonDialogOpen] = useState(false);
   const [isLoadSampleDataDialogOpen, setLoadSampleDataDialogOpen] = useState(false);
 
-  // ⬇️ WICHTIG: richtige Struktur (ValidationError[])
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   const [colors, setColors] = useState<AppColors>(() => {
@@ -66,7 +63,7 @@ const App: React.FC = () => {
       return defaultColors;
     }
   });
-
+  
   // 🔄 forceUpdate Hook für sanfte Aktualisierung
   const [, setTick] = useState(0);
   const forceUpdate = () => setTick((t) => t + 1);
@@ -78,16 +75,6 @@ const App: React.FC = () => {
       console.warn('Could not save colors to local storage', e);
     }
   }, [colors]);
-  
-  // 🔽 NEUER useEffect Hook zur Datenvalidierung nach jeder Änderung
-  useEffect(() => {
-    const errors = validateData(state.people);
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-    } else {
-      setValidationErrors([]);
-    }
-  }, [state.people]);
 
   const handleAddPerson = () => {
     setEditingPerson(null);
@@ -129,19 +116,26 @@ const App: React.FC = () => {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
 
-      // 🔽 Validierung wird jetzt vom useEffect Hook übernommen
+      const errors = validateData(people.filter(p => p.id !== personToDelete.id)); // Validiere die ZUKÜNFTIGEN Daten
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+      } else {
+        setValidationErrors([]);
+      }
+      
       setCurrentView('table');
       setAppState('database');
+      forceUpdate(); // Re-add forceUpdate() - in diesem Fall kann es notwendig sein, um das Rendering nach der asynchronen Validierung zu erzwingen
     }
   };
 
   const handleSavePerson = (personData: PersonFormData) => {
-    // ⬇️ Absicherung: Gender immer gültig (m/w/d), Default 'm'
     const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' ? personData.gender : 'm';
+
+    let updatedPeople: Person[] = [];
 
     if (personData.id) {
       const basePerson = { ...editingPerson!, ...personData, gender: safeGender };
-
       let newRingCode = basePerson.code;
       if (personData.inheritedFrom && personData.inheritedFrom !== basePerson.inheritedFrom) {
         const inheritedFromPerson = people.find((p) => p.code === personData.inheritedFrom);
@@ -153,9 +147,9 @@ const App: React.FC = () => {
       } else {
         newRingCode = basePerson.ringCode;
       }
-
       const updatedPerson: Person = { ...basePerson, ringCode: newRingCode };
       dispatch({ type: 'UPDATE_PERSON', payload: updatedPerson });
+      updatedPeople = people.map(p => p.id === updatedPerson.id ? updatedPerson : p);
     } else {
       const tempId = `temp-${Date.now()}`;
       const newPersonBase: Person = {
@@ -164,9 +158,8 @@ const App: React.FC = () => {
         code: '',
         ringCode: '',
         ringHistory: [],
-        gender: safeGender, // ⬅️ sicherstellen
+        gender: safeGender,
       };
-
       const newCode = generatePersonCode(newPersonBase, people);
       newPersonBase.code = newCode;
       newPersonBase.ringCode = newCode;
@@ -177,7 +170,6 @@ const App: React.FC = () => {
           newPersonBase.ringCode = `${inheritedFromPerson.ringCode} → ${newPersonBase.code}`;
         }
       }
-
       const { updates } = getCodeRecalculation(newPersonBase, people);
 
       if (updates.length > 0) {
@@ -185,22 +177,32 @@ const App: React.FC = () => {
           type: 'ADD_PERSON_WITH_RECALCULATION',
           payload: { newPerson: newPersonBase, updates },
         });
+        updatedPeople = [...people, newPersonBase];
       } else {
         dispatch({ type: 'ADD_PERSON', payload: newPersonBase });
+        updatedPeople = [...people, newPersonBase];
       }
     }
+    
+    // 🔽 Führe die Validierung DIREKT hier aus, aber mit den Zukünftigen Daten
+    const errors = validateData(updatedPeople);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+    } else {
+      setValidationErrors([]);
+    }
 
-    // 🔽 Validierung wird jetzt vom useEffect Hook übernommen
     setPersonDialogOpen(false);
-    setCurrentView('table');   // 🔽 Rücksprung in die Tabelle
+    setCurrentView('table');
     setAppState('database');
+    forceUpdate(); // Re-add forceUpdate() - um das Rendering nach dem Speichern zu erzwingen
   };
 
   const handleImport = async (file: File) => {
     try {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
-
+      
       const errors = validateData(importedPeople);
       if (errors.length > 0) {
         setValidationErrors(errors);
@@ -208,7 +210,7 @@ const App: React.FC = () => {
         alert('Daten erfolgreich importiert!');
       }
 
-      setCurrentView('table');   // 🔽 Rücksprung in die Tabelle
+      setCurrentView('table');
       setAppState('database');
       forceUpdate();
     } catch (error) {
@@ -225,13 +227,13 @@ const App: React.FC = () => {
     exportData(people, format);
   };
 
-  // ⬇️ Fix: Personendaten wirklich leeren + zur TableView wechseln
   const confirmReset = () => {
-    dispatch({ type: 'RESET_PERSON_DATA' }); // vorher: RESET (gab’s nicht mehr)
+    dispatch({ type: 'RESET_PERSON_DATA' });
     setResetDialogOpen(false);
     setSearchTerm('');
-    setCurrentView('table');       // gewünschter Wechsel zur Tabellen-Ansicht
-    setAppState('database');      // falls man aus Welcome/Info kommt
+    setCurrentView('table');
+    setAppState('database');
+    setValidationErrors([]); // Lösche Validierungsfehler
     forceUpdate();
   };
 
@@ -252,9 +254,8 @@ const App: React.FC = () => {
     dispatch({ type: 'LOAD_SAMPLE_DATA' });
     setLoadSampleDataDialogOpen(false);
 
-    // 🔽 Filter zurücksetzen
     setSearchTerm('');
-    setCurrentView('table');   // 🔽 Rücksprung in die Tabelle
+    setCurrentView('table');
     setAppState('database');
 
     const errors = validateData(state.people);
@@ -363,7 +364,7 @@ const App: React.FC = () => {
         onClose={() => setSettingsDialogOpen(false)}
         onReset={() => {
           setSettingsDialogOpen(false);
-          setResetDialogOpen(true); // Bestätigungsdialog – danach confirmReset()
+          setResetDialogOpen(true);
         }}
         onLoadSampleData={handleLoadSampleDataRequest}
         colors={colors}
