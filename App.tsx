@@ -72,6 +72,13 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
+  // Dieser useEffect-Hook führt die Validierung IMMER aus, wenn sich der people-State ändert.
+  // Das ist der zuverlässigste Weg, um nach einer Speicherung oder Löschung zu validieren.
+  useEffect(() => {
+    const errors = validateData(state.people);
+    setValidationErrors(errors);
+  }, [state.people]);
+
   const handleAddPerson = () => {
     setEditingPerson(null);
     setPersonDialogOpen(true);
@@ -111,11 +118,6 @@ const App: React.FC = () => {
     if (personToDelete) {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
-
-      const remainingPeople = people.filter(p => p.id !== personToDelete.id);
-      const errors = validateData(remainingPeople);
-      setValidationErrors(errors);
-
       setCurrentView('table');
       setAppState('database');
     }
@@ -123,8 +125,6 @@ const App: React.FC = () => {
 
   const handleSavePerson = (personData: PersonFormData) => {
     const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' ? personData.gender : 'm';
-
-    let updatedPeople: Person[] = [];
 
     if (personData.id) {
       const basePerson = { ...editingPerson!, ...personData, gender: safeGender };
@@ -141,7 +141,6 @@ const App: React.FC = () => {
       }
       const updatedPerson: Person = { ...basePerson, ringCode: newRingCode };
       dispatch({ type: 'UPDATE_PERSON', payload: updatedPerson });
-      updatedPeople = people.map(p => p.id === updatedPerson.id ? updatedPerson : p);
     } else {
       const tempId = `temp-${Date.now()}`;
       const newPersonBase: Person = {
@@ -169,15 +168,10 @@ const App: React.FC = () => {
           type: 'ADD_PERSON_WITH_RECALCULATION',
           payload: { newPerson: newPersonBase, updates },
         });
-        updatedPeople = [...people, newPersonBase];
       } else {
         dispatch({ type: 'ADD_PERSON', payload: newPersonBase });
-        updatedPeople = [...people, newPersonBase];
       }
     }
-
-    const errors = validateData(updatedPeople);
-    setValidationErrors(errors);
 
     setPersonDialogOpen(false);
     setCurrentView('table');
@@ -188,14 +182,6 @@ const App: React.FC = () => {
     try {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
-
-      const errors = validateData(importedPeople);
-      if (errors.length > 0) {
-        setValidationErrors(errors);
-      } else {
-        alert('Daten erfolgreich importiert!');
-      }
-
       setCurrentView('table');
       setAppState('database');
     } catch (error) {
@@ -218,7 +204,6 @@ const App: React.FC = () => {
     setSearchTerm('');
     setCurrentView('table');
     setAppState('database');
-    setValidationErrors([]);
   };
 
   const handlePrint = () => {
@@ -237,15 +222,9 @@ const App: React.FC = () => {
   const confirmLoadSampleData = () => {
     dispatch({ type: 'LOAD_SAMPLE_DATA' });
     setLoadSampleDataDialogOpen(false);
-
     setSearchTerm('');
     setCurrentView('table');
     setAppState('database');
-
-    const errors = validateData(people);
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-    }
   };
 
   const filteredPeople = useMemo(() => {
