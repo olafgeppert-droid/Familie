@@ -16,71 +16,11 @@ type Unit = {
 type TreeNode = Unit;
 
 // ---- Layout-Parameter (vertikal bleibt gleich) ----
-const MIN_NODE_WIDTH = 210;        // frühere feste Breite: Mindestbreite
+const MIN_NODE_WIDTH = 210;
 const NODE_HEIGHT = 78;
-const PARTNER_GAP = 16;            // vertikaler Abstand zwischen Partnern
-const H_GAP = 120;                 // Basisabstand zwischen den Generationen-Spalten (zusätzlich zu den Box-Breiten)
-const V_EXTRA = 90;                // zusätzlicher vertikaler Abstand zwischen Zeilen
-
-// Für Textmessung (Canvas)
-let _measureCtx: CanvasRenderingContext2D | null = null;
-const ensureMeasureCtx = () => {
-  if (_measureCtx) return _measureCtx;
-  const c = document.createElement('canvas');
-  const ctx = c.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D context not available');
-  // möglichst nah an unserer Card-Typografie
-  ctx.font = '700 14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
-  _measureCtx = ctx;
-  return _measureCtx;
-};
-
-const measureTextWidth = (text: string) => {
-  const ctx = ensureMeasureCtx();
-  return Math.ceil(ctx.measureText(text).width);
-};
-
-// Breite einer Personen-Card dynamisch aus Textinhalt ableiten
-const cardWidthForPerson = (p: Person) => {
-  // Kopfzeile in der Card: [💍] CODE / NAME  (bold, 14px)
-  const head = `${p.hasRing ? '💍 ' : ''}${p.code} / ${p.name}`;
-  const headW = measureTextWidth(head);
-
-  // Layout-Puffer in der Card:
-  // - padding links+rechts: p-2 => 8px * 2 = 16
-  // - Avatarblock: 56px (w-14) + 12px margin (mr-3) + ~2px Rand => ~70
-  // - kleine „Sicherheitsmarge": 20
-  const PADDING_X = 16;
-  const AVATAR_BLOCK = 70;
-  const SAFETY = 20;
-
-  const computed = headW + PADDING_X + AVATAR_BLOCK + SAFETY;
-  return Math.max(MIN_NODE_WIDTH, computed);
-};
-
-// Für Partner-Einheiten: Breite = max(Breiten beider Personen)
-const unitWidth = (u: Unit) => {
-  if (u.persons.length === 0) return MIN_NODE_WIDTH;
-  if (u.persons.length === 1) return cardWidthForPerson(u.persons[0]);
-  return Math.max(cardWidthForPerson(u.persons[0]), cardWidthForPerson(u.persons[1]));
-};
-
-const halfHeight = (u: Unit | TreeNode) =>
-  (u.persons.length === 2) ? (NODE_HEIGHT + PARTNER_GAP / 2) : (NODE_HEIGHT / 2);
-
-// Generation aus Code ableiten (Basis = Stammlinie, Partner tragen "x")
-const unitGeneration = (u: Unit): number => {
-  if (!u.persons.length) return 0;
-  const base = u.persons.find(p => !p.code.endsWith('x')) ?? u.persons[0];
-  return getGeneration(base.code);
-};
-
-const median = (arr: number[]) => {
-  if (arr.length === 0) return 0;
-  const a = [...arr].sort((x, y) => x - y);
-  const mid = Math.floor(a.length / 2);
-  return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
-};
+const PARTNER_GAP = 16;
+const H_GAP = 120;
+const V_EXTRA = 90;
 
 const Card: React.FC<{ p: Person; onClick: (p: Person) => void; offsetY?: number; width: number; isHighlighted?: boolean }> = ({ p, onClick, offsetY = 0, width, isHighlighted = false }) => {
   const g = getGeneration(p.code);
@@ -181,8 +121,9 @@ export const TreeView: React.FC<TreeViewProps> = ({ people, onEdit, searchTerm =
   const gRef = useRef<SVGGElement>(null);
   const [highlightedPersonId, setHighlightedPersonId] = useState<string | undefined>();
   const [zoomToPerson, setZoomToPerson] = useState<Person | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Suche nach Person basierend auf searchTerm
+  // Vereinfachte Suche
   useEffect(() => {
     if (!searchTerm.trim()) {
       setHighlightedPersonId(undefined);
@@ -200,11 +141,55 @@ export const TreeView: React.FC<TreeViewProps> = ({ people, onEdit, searchTerm =
     if (foundPerson) {
       setHighlightedPersonId(foundPerson.id);
       setZoomToPerson(foundPerson);
-    } else {
-      setHighlightedPersonId(undefined);
-      setZoomToPerson(null);
     }
   }, [searchTerm, people]);
+
+  // Vereinfachte Baumstruktur
+  const forest = useMemo(() => {
+    if (!people || people.length === 0) return null;
+    
+    // Einfache Struktur: Jede Person ist ein eigener Knoten
+    const simpleUnits: Unit[] = people.map(person => ({
+      id: `u-${person.id}`,
+      persons: [person],
+      children: []
+    }));
+
+    // Einfache Eltern-Kind-Beziehungen
+    people.forEach(person => {
+      if (person.parentId) {
+        const parentUnit = simpleUnits.find(u => u.persons[0].id === person.parentId);
+        const childUnit = simpleUnits.find(u => u.persons[0].id === person.id);
+        if (parentUnit && childUnit) {
+          parentUnit.children.push(childUnit);
+        }
+      }
+    });
+
+    // Wurzeln finden (Personen ohne Eltern)
+    const roots = simpleUnits.filter(unit => 
+      !people.some(p => p.id === unit.persons[0].id && p.parentId)
+    );
+
+    const pseudoRoot: Unit = { id: 'root', persons: [], children: roots };
+    return hierarchy<TreeNode>(pseudoRoot);
+  }, [people]);
+
+  // Vereinfachtes Layout
+  const layout = useMemo(() => {
+    if (!forest) return null;
+
+    try {
+      const t = tree<TreeNode>()
+        .nodeSize([NODE_HEIGHT + V_EXTRA, MIN_NODE_WIDTH + H_GAP])
+        .separation(() => 1.2);
+
+      return t(forest);
+    } catch (error) {
+      console.error('Layout error:', error);
+      return null;
+    }
+  }, [forest]);
 
   // Zoom zur gefundenen Person
   useEffect(() => {
@@ -219,336 +204,113 @@ export const TreeView: React.FC<TreeViewProps> = ({ people, onEdit, searchTerm =
       const svg = select(svgRef.current);
       const g = select(gRef.current);
       
-      const widthByUnit: Map<string, number> = (layout as any).__widthByUnit ?? new Map();
-      const u: Unit = foundNode.data;
-      const w = widthByUnit.get(u.id) ?? MIN_NODE_WIDTH;
-      const hh = halfHeight(u);
-      
       const targetX = foundNode.x;
       const targetY = foundNode.y;
       
-      // Viewport-Berechnungen
-      const svgElement = svgRef.current;
-      const viewBox = svgElement.getAttribute('viewBox')?.split(' ').map(Number) || [0, 0, 800, 600];
-      const [vbX, vbY, vbWidth, vbHeight] = viewBox;
-      
-      // Zentriere die gefundene Person
-      const scale = 1.5; // Leicht zoomen für bessere Sichtbarkeit
-      const translateX = -targetY + (vbWidth / 2 / scale);
-      const translateY = -targetX + (vbHeight / 2 / scale);
-      
       const zoomBehavior = zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.05, 20])
+        .scaleExtent([0.1, 5])
         .on('zoom', (event) => {
           g.attr('transform', event.transform);
         });
 
       svg.call(zoomBehavior.transform as any, zoomIdentity
-        .translate(translateX, translateY)
-        .scale(scale)
+        .translate(-targetY + 400, -targetX + 300)
+        .scale(1.5)
       );
-
-      // Reset nach 5 Sekunden
-      const timer = setTimeout(() => {
-        setZoomToPerson(null);
-      }, 5000);
-
-      return () => clearTimeout(timer);
     }
   }, [zoomToPerson, layout]);
 
-  // ----- Forest/Einheiten aufbauen -----
-  const forest = useMemo(() => {
-    if (!people || people.length === 0) return null;
-
-    const byId = new Map<string, Person>(people.map(p => [p.id, p]));
-    const paired = new Set<string>();
-    const unitsById = new Map<string, Unit>();
-
-    const makeUnitIdForPair = (a: Person, b: Person) => {
-      const [id1, id2] = [a.id, b.id].sort();
-      return `u-${id1}-${id2}`;
-    };
-
-    // Partner-Einheiten bilden (einseitige oder zweiseitige Verknüpfung reicht)
-    people.forEach(p => {
-      if (!p.partnerId) return;
-      const partner = byId.get(p.partnerId);
-      if (!partner) return;
-      const uid = makeUnitIdForPair(p, partner);
-      if (unitsById.has(uid)) return;
-
-      // Reihenfolge: nicht-x nach oben, x nach unten
-      const top = p.code.endsWith('x') ? partner : p;
-      const bottom = p.code.endsWith('x') ? p : partner;
-
-      unitsById.set(uid, { id: uid, persons: [top, bottom], children: [] });
-      paired.add(p.id);
-      paired.add(partner.id);
-    });
-
-    // Singles (keine Partner-Einheit)
-    people.forEach(p => {
-      if (paired.has(p.id)) return;
-      const uid = `u-${p.id}`;
-      if (!unitsById.has(uid)) unitsById.set(uid, { id: uid, persons: [p], children: [] });
-    });
-
-    const unitOfPerson = (pid: string): Unit | undefined => {
-      const direct = unitsById.get(`u-${pid}`);
-      if (direct) return direct;
-      for (const u of unitsById.values()) {
-        if (u.persons.some(pp => pp.id === pid)) return u;
-      }
-      return undefined;
-    };
-
-    const hasParent = new Map<string, boolean>();
-    for (const u of unitsById.values()) hasParent.set(u.id, false);
-
-    const pushChild = (parent: Unit, child: Unit) => {
-      if (parent === child) return;
-      if (!parent.children.some(c => c.id === child.id)) parent.children.push(child);
-    };
-
-    // Eltern-Kind-Zuordnung auf Einheitsebene
-    people.forEach(p => {
-      if (!p.parentId) return;
-      const parentUnit = unitOfPerson(p.parentId);
-      const childUnit = unitOfPerson(p.id);
-      if (!parentUnit || !childUnit) return;
-      pushChild(parentUnit, childUnit);
-      hasParent.set(childUnit.id, true);
-    });
-
-    // Wurzeln (Einheiten ohne Eltern)
-    const roots: Unit[] = [];
-    for (const u of unitsById.values()) {
-      if (!hasParent.get(u.id)) roots.push(u);
+  // ViewBox setzen
+  useLayoutEffect(() => {
+    if (!layout || !svgRef.current || !gRef.current) {
+      setIsLoading(false);
+      return;
     }
 
-    const pseudoRoot: Unit = { id: 'root', persons: [], children: roots };
-    return hierarchy<TreeNode>(pseudoRoot);
-  }, [people]);
+    try {
+      const nodes = layout.descendants().filter((n: any) => n.data.id !== 'root');
+      if (nodes.length === 0) {
+        setIsLoading(false);
+        return;
+      }
 
-  // ----- Layout berechnen -----
-  const layout = useMemo(() => {
-    if (!forest) return null;
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
-    // 1) D3-Tree nur für die vertikale Anordnung benutzen
-    const vertical = NODE_HEIGHT + PARTNER_GAP + V_EXTRA;
-    const t = tree<TreeNode>()
-      .nodeSize([vertical, 1])  // y nutzen wir später selbst
-      .separation((a, b) => {
-        const ah = a.data.persons.length === 2 ? 2 : 1;
-        const bh = b.data.persons.length === 2 ? 2 : 1;
-        const base = (ah + bh) / 2;
-        return (a.parent && b.parent && a.parent === b.parent) ? base : base + 0.6;
+      nodes.forEach((n: any) => {
+        const top = n.x - NODE_HEIGHT/2;
+        const bottom = n.x + NODE_HEIGHT/2;
+        const left = n.y - MIN_NODE_WIDTH/2;
+        const right = n.y + MIN_NODE_WIDTH/2;
+        
+        if (top < minX) minX = top;
+        if (bottom > maxX) maxX = bottom;
+        if (left < minY) minY = left;
+        if (right > maxY) maxY = right;
       });
 
-    const laid = t(forest);
+      const pad = 200;
+      setViewBox(`${minY - pad} ${minX - pad} ${(maxY - minY) + 2 * pad} ${(maxX - minX) + 2 * pad}`);
 
-    // 2) Spaltenbreiten pro Generation bestimmen
-    const nodes = laid.descendants().filter(n => n.data.id !== 'root');
-    const gens = new Set<number>();
-    const widthByUnit = new Map<string, number>();
-    const maxWidthByGen = new Map<number, number>();
+      const svg = select(svgRef.current);
+      const g = select(gRef.current);
 
-    nodes.forEach(n => {
-      const u = n.data;
-      const g = unitGeneration(u);
-      if (g <= 0) return;
-      gens.add(g);
-      const w = unitWidth(u);
-      widthByUnit.set(u.id, w);
-      const prevMax = maxWidthByGen.get(g) ?? MIN_NODE_WIDTH;
-      if (w > prevMax) maxWidthByGen.set(g, w);
-    });
+      const zoomBehavior = zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.1, 5])
+        .on('zoom', (event) => {
+          g.attr('transform', event.transform);
+        });
 
-    const gensSorted = Array.from(gens).sort((a, b) => a - b);
+      svg.call(zoomBehavior as any);
+      setIsLoading(false);
 
-    // 3) Spaltenzentren (y-Positionen) aus den Breiten + H_GAP berechnen
-    const colCenterByGen = new Map<number, number>();
-    let cursor = 0;
-    gensSorted.forEach((g, idx) => {
-      const w = maxWidthByGen.get(g) ?? MIN_NODE_WIDTH;
-      if (idx === 0) {
-        cursor = w / 2;
-      } else {
-        const prev = gensSorted[idx - 1];
-        const wPrev = maxWidthByGen.get(prev) ?? MIN_NODE_WIDTH;
-        cursor += (wPrev / 2) + H_GAP + (w / 2);
-      }
-      colCenterByGen.set(g, cursor);
-    });
-
-    // 4) y-Position jedes Knotens auf die passende Spalte der Generation setzen
-    nodes.forEach(n => {
-      const g = unitGeneration(n.data);
-      if (g > 0) {
-        const cx = colCenterByGen.get(g);
-        if (cx != null) (n as any).y = cx;
-      }
-    });
-
-    // Hilfswerte anhängen, damit wir sie später im Render haben
-    (laid as any).__widthByUnit = widthByUnit;
-    (laid as any).__colCenterByGen = colCenterByGen;
-    (laid as any).__maxWidthByGen = maxWidthByGen;
-    (laid as any).__gensSorted = gensSorted;
-
-    return laid;
-  }, [forest]);
-
-  const [viewBox, setViewBox] = useState('0 0 1200 800');
-
-  useLayoutEffect(() => {
-    if (!layout || !svgRef.current || !gRef.current) return;
-
-    const nodes = layout.descendants().filter((n: any) => n.data.id !== 'root');
-    if (nodes.length === 0) return;
-
-    const widthByUnit: Map<string, number> = (layout as any).__widthByUnit ?? new Map();
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-
-    nodes.forEach((n: any) => {
-      const u: Unit = n.data;
-      const w = widthByUnit.get(u.id) ?? MIN_NODE_WIDTH;
-      const hh = halfHeight(u);
-      const top = n.x - hh;
-      const bottom = n.x + hh;
-      const left = n.y - w / 2;
-      const right = n.y + w / 2;
-      if (top < minX) minX = top;
-      if (bottom > maxX) maxX = bottom;
-      if (left < minY) minY = left;
-      if (right > maxY) maxY = right;
-    });
-
-    const headerSpace = 100;
-    const pad = 160;
-
-    setViewBox(`${minY - pad} ${minX - pad - headerSpace} ${(maxY - minY) + 2 * pad} ${(maxX - minX) + 2 * pad + headerSpace}`);
-
-    const svg = select(svgRef.current);
-    const g = select(gRef.current);
-
-    const zoomBehavior = zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.05, 20])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
-      });
-
-    svg.on('.zoom', null);
-    svg.call(zoomBehavior as any);
-
-    return () => { svg.on('.zoom', null); };
+    } catch (error) {
+      console.error('ViewBox error:', error);
+      setIsLoading(false);
+    }
   }, [layout]);
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-[70vh]">Lade Stammbaum...</div>;
+  }
+
   if (!layout) {
-    return <div className="text-gray-600 italic p-4">Keine Daten vorhanden.</div>;
+    return <div className="text-gray-600 italic p-4">Keine Daten vorhanden oder Fehler beim Laden.</div>;
   }
 
   const nodes = layout.descendants().filter(n => n.data.id !== 'root');
-  const links = layout.links().filter(l => l.source.data.id !== 'root');
+  const links = layout.links().filter(l => l.source.data.id !== 'root' && l.target.data.id !== 'root');
 
   const linkPath = linkHorizontal<any, HierarchyPointNode<TreeNode>>()
     .x(d => d.y)
     .y(d => d.x);
 
-  // Header-Positionen jetzt direkt aus den Spaltenzentren der Generationen
-  const colCenterByGen: Map<number, number> = (layout as any).__colCenterByGen ?? new Map();
-  const gensSorted: number[] = (layout as any).__gensSorted ?? [];
-  const widthByUnit: Map<string, number> = (layout as any).__widthByUnit ?? new Map();
-
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  nodes.forEach((n as any) => {
-    const u: Unit = (n as any).data;
-    const w = widthByUnit.get(u.id) ?? MIN_NODE_WIDTH;
-    const hh = halfHeight(u);
-    const top = (n as any).x - hh;
-    const bottom = (n as any).x + hh;
-    const left = (n as any).y - w / 2;
-    const right = (n as any).y + w / 2;
-    if (top < minX) minX = top;
-    if (bottom > maxX) maxX = bottom;
-    if (left < minY) minY = left;
-    if (right > maxY) maxY = right;
-  });
-  const headerY = minX - 70;
-  const bgPad = 400;
-
   return (
-    <div className="bg-white p-2 rounded-lg shadow-lg animate-fade-in w-full h-[70vh]">
+    <div className="bg-white p-2 rounded-lg shadow-lg w-full h-[70vh]">
       {highlightedPersonId && (
         <div className="mb-2 p-2 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
-          Gefundene Person wird hervorgehoben und zentriert...
+          Gefundene Person wird hervorgehoben
         </div>
       )}
+      
       <svg ref={svgRef} width="100%" height="100%" viewBox={viewBox}>
         <g ref={gRef}>
-          <rect
-            x={minY - bgPad}
-            y={minX - bgPad - 160}
-            width={(maxY - minY) + 2 * bgPad}
-            height={(maxX - minX) + 2 * bgPad + 220}
-            fill="transparent"
-            pointerEvents="all"
-          />
-
           {/* Verbindungslinien */}
           <g fill="none" stroke="#9AA6B2" strokeOpacity={0.85} strokeWidth={1.5}>
             {links.map((l, i) => (
-              <path key={i} d={linkPath({ source: l.source, target: l.target }) || ''} />
+              <path key={i} d={linkPath(l) || ''} />
             ))}
           </g>
 
-          {/* Spaltenlinien & Header */}
-          {gensSorted.map((gen, i) => {
-            const cx = colCenterByGen.get(gen)!;
-            return (
-              <g key={`hdr-${gen}`}>
-                <line
-                  x1={cx}
-                  y1={minX - 160}
-                  x2={cx}
-                  y2={maxX + 160}
-                  stroke="#E5E7EB"
-                  strokeDasharray="6 6"
-                  strokeWidth={1}
-                  opacity={0.7}
-                  pointerEvents="none"
-                />
-                <g transform={`translate(${cx},${headerY})`} pointerEvents="none">
-                  <text
-                    x={0}
-                    y={0}
-                    textAnchor="middle"
-                    fontWeight="bold"
-                    fontSize="18"
-                    fill="#0D3B66"
-                  >
-                    {getGenerationName(gen)}
-                  </text>
-                </g>
-              </g>
-            );
-          })}
-
           {/* Einheiten */}
-          {nodes.map((n, i) => {
-            const u = n.data as Unit;
-            const w = (layout as any).__widthByUnit?.get(u.id) ?? MIN_NODE_WIDTH;
-            return (
-              <UnitNode 
-                key={i} 
-                node={n as HierarchyPointNode<TreeNode>} 
-                onEdit={onEdit} 
-                width={w} 
-                highlightedPersonId={highlightedPersonId}
-              />
-            );
-          })}
+          {nodes.map((n, i) => (
+            <UnitNode 
+              key={i} 
+              node={n as HierarchyPointNode<TreeNode>} 
+              onEdit={onEdit} 
+              width={MIN_NODE_WIDTH} 
+              highlightedPersonId={highlightedPersonId}
+            />
+          ))}
         </g>
       </svg>
     </div>
