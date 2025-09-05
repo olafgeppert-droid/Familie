@@ -21,10 +21,7 @@ import { WappenInfo } from './components/WappenInfo';
 import { validateData } from './services/validateData';
 import { ValidationDialog } from './components/ValidationDialog';
 
-// ⬇️ WICHTIG: korrekte Typen für Validierungsfehler
 import type { ValidationError } from './services/validateData';
-
-// 🔽 Version aus package.json importieren
 import packageJson from './package.json';
 
 export interface AppColors {
@@ -33,14 +30,15 @@ export interface AppColors {
 }
 
 const defaultColors: AppColors = {
-  header: '#1665d8', // brand-header
-  sidebar: '#cae2fc', // brand-sidebar
+  header: '#1665d8',
+  sidebar: '#cae2fc',
 };
 
 const App: React.FC = () => {
   const { state, dispatch, undo, redo, canUndo, canRedo } = useFamilyData();
   const version = packageJson.version;
 
+  // State management
   const [appState, setAppState] = useState<'welcome' | 'info' | 'database'>('welcome');
   const [currentView, setCurrentView] = useState<View>('table');
   const [isPersonDialogOpen, setPersonDialogOpen] = useState(false);
@@ -54,6 +52,7 @@ const App: React.FC = () => {
   const [isLoadSampleDataDialogOpen, setLoadSampleDataDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
+  // Colors with localStorage persistence
   const [colors, setColors] = useState<AppColors>(() => {
     try {
       const storedColors = localStorage.getItem('appColors');
@@ -64,7 +63,7 @@ const App: React.FC = () => {
     }
   });
 
-  // 🔽 Speichern der Colors im localStorage
+  // Save colors to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('appColors', JSON.stringify(colors));
@@ -73,28 +72,35 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
-  // 🔽 Validation nach Redux-Updates
+  // Validation after data changes - ONLY when in database mode
   useEffect(() => {
-    const errors = validateData(state.people);
-    setValidationErrors(errors);
-    
-    // 🔽 IMMER zur Tabellenansicht zurückkehren nach Datenänderungen
-    if (appState === 'database' && currentView !== 'table') {
-      setCurrentView('table');
+    if (appState === 'database') {
+      try {
+        const errors = validateData(state.people);
+        setValidationErrors(errors);
+      } catch (error) {
+        console.error('Validation error:', error);
+        setValidationErrors([{
+          personId: 'validation-error',
+          message: 'Fehler bei der Datenvalidierung',
+          severity: 'error'
+        }]);
+      }
     }
-  }, [state.people, appState, currentView]);
+  }, [state.people, appState]);
 
+  // Handler functions
   const handleAddPerson = () => {
     setEditingPerson(null);
     setPersonDialogOpen(true);
   };
 
-  const handleEditPerson = useCallback((person: Person) => {
+  const handleEditPerson = (person: Person) => {
     setEditingPerson(person);
     setPersonDialogOpen(true);
-  }, []);
+  };
 
-  const handleFindAndOpenForEditing = useCallback((term: string) => {
+  const handleFindAndOpenForEditing = (term: string) => {
     if (!term.trim()) {
       alert('Bitte gib einen Namen oder Code ein.');
       return;
@@ -112,21 +118,23 @@ const App: React.FC = () => {
       alert(`Keine Person mit dem Namen oder Code "${term}" gefunden.`);
     }
     setFindPersonDialogOpen(false);
-  }, [state.people, handleEditPerson]);
+  };
 
-  const handleDeleteRequest = useCallback((person: Person) => {
+  const handleDeleteRequest = (person: Person) => {
     setPersonToDelete(person);
     setPersonDialogOpen(false);
-  }, []);
+  };
 
-  const confirmDeletePerson = useCallback(() => {
+  const confirmDeletePerson = () => {
     if (personToDelete) {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
+      // Sicherstellen, dass wir nach Löschung in der Tabellenansicht sind
+      setCurrentView('table');
     }
-  }, [personToDelete, dispatch]);
+  };
 
-  const handleSavePerson = useCallback((personData: PersonFormData) => {
+  const handleSavePerson = (personData: PersonFormData) => {
     const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' 
       ? personData.gender 
       : 'm';
@@ -184,54 +192,58 @@ const App: React.FC = () => {
       }
     }
 
-    // Dialog schließen - Validation erfolgt automatisch durch useEffect
+    // Dialog schließen und zur Tabellenansicht zurückkehren
     setPersonDialogOpen(false);
-  }, [editingPerson, state.people, dispatch]);
+    setCurrentView('table');
+  };
 
-  const handleImport = useCallback(async (file: File) => {
+  const handleImport = async (file: File) => {
     try {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
+      setCurrentView('table');
+      setAppState('database');
       alert('Daten erfolgreich importiert!');
     } catch (error) {
       console.error(error);
-      alert(
-        `Fehler beim Import: ${
-          error instanceof Error ? error.message : 'Unbekannter Fehler'
-        }`
-      );
+      alert(`Fehler beim Import: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
     }
-  }, [dispatch]);
+  };
 
-  const handleExport = useCallback((format: 'json' | 'csv') => {
+  const handleExport = (format: 'json' | 'csv') => {
     exportData(state.people, format);
-  }, [state.people]);
+  };
 
-  const confirmReset = useCallback(() => {
+  const confirmReset = () => {
     dispatch({ type: 'RESET_PERSON_DATA' });
     setResetDialogOpen(false);
     setSearchTerm('');
-  }, [dispatch]);
+    setCurrentView('table');
+    setAppState('database');
+  };
 
-  const handlePrint = useCallback(() => {
+  const handlePrint = () => {
     const printDateElement = document.querySelector('#printable-area .print-header p');
     if (printDateElement) {
       printDateElement.textContent = `Stand: ${new Date().toLocaleString('de-DE')} | Version ${version}`;
     }
     printView('printable-area');
-  }, [version]);
+  };
 
-  const handleLoadSampleDataRequest = useCallback(() => {
+  const handleLoadSampleDataRequest = () => {
     setSettingsDialogOpen(false);
     setLoadSampleDataDialogOpen(true);
-  }, []);
+  };
 
-  const confirmLoadSampleData = useCallback(() => {
+  const confirmLoadSampleData = () => {
     dispatch({ type: 'LOAD_SAMPLE_DATA' });
     setLoadSampleDataDialogOpen(false);
     setSearchTerm('');
-  }, [dispatch]);
+    setCurrentView('table');
+    setAppState('database');
+  };
 
+  // Memoized values
   const filteredPeople = useMemo(() => {
     if (!searchTerm) return state.people;
     return state.people.filter(
@@ -241,7 +253,7 @@ const App: React.FC = () => {
     );
   }, [state.people, searchTerm]);
 
-  const MainView = useCallback(() => {
+  const MainViewComponent = useMemo(() => {
     switch (currentView) {
       case 'tree':
         return <TreeView people={state.people} onEdit={handleEditPerson} />;
@@ -257,8 +269,9 @@ const App: React.FC = () => {
           />
         );
     }
-  }, [currentView, state.people, filteredPeople, searchTerm, handleEditPerson]);
+  }, [currentView, state.people, filteredPeople, searchTerm]);
 
+  // Render different app states
   if (appState === 'welcome') {
     return (
       <WelcomeScreen
@@ -273,6 +286,7 @@ const App: React.FC = () => {
     return <WappenInfo onShowDatabase={() => setAppState('database')} />;
   }
 
+  // Main database view
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Header version={version} color={colors.header} />
@@ -308,12 +322,13 @@ const App: React.FC = () => {
                 </h1>
                 <p className="text-center text-sm"></p>
               </div>
-              <MainView />
+              {MainViewComponent}
             </div>
           </main>
         </div>
       </div>
 
+      {/* Dialogs */}
       <PersonDialog
         isOpen={isPersonDialogOpen}
         onClose={() => setPersonDialogOpen(false)}
@@ -345,6 +360,7 @@ const App: React.FC = () => {
         message={`Möchtest du "${personToDelete?.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
         confirmButtonClass="bg-red-600 hover:bg-red-700"
       />
+
       <ConfirmationDialog
         isOpen={isResetDialogOpen}
         onClose={() => setResetDialogOpen(false)}
@@ -353,6 +369,7 @@ const App: React.FC = () => {
         message="Sollen wirklich alle Personen gelöscht werden?"
         confirmButtonClass="bg-red-600 hover:bg-red-700"
       />
+
       <ConfirmationDialog
         isOpen={isLoadSampleDataDialogOpen}
         onClose={() => setLoadSampleDataDialogOpen(false)}
@@ -361,6 +378,7 @@ const App: React.FC = () => {
         message="Achtung: Dies überschreibt deine gesamte aktuelle Datenbank! Möchtest du fortfahren? Es wird empfohlen, vorher deine Daten zu exportieren."
         confirmButtonClass="bg-yellow-500 hover:bg-yellow-600"
       />
+
       <FindPersonDialog
         isOpen={isFindPersonDialogOpen}
         onClose={() => setFindPersonDialogOpen(false)}
