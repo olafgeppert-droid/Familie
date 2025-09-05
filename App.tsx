@@ -193,7 +193,7 @@ const App: React.FC = () => {
     setPersonDialogOpen(false);
     setCurrentView('table');   // 🔽 Rücksprung in die Tabelle
     setAppState('database');
-    forceUpdate();
+  
   };
 
   const handleImport = async (file: File) => {
