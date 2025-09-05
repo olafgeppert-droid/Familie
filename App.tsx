@@ -63,8 +63,7 @@ const App: React.FC = () => {
       return defaultColors;
     }
   });
-  
-  // 🔄 forceUpdate Hook für sanfte Aktualisierung
+
   const [, setTick] = useState(0);
   const forceUpdate = () => setTick((t) => t + 1);
 
@@ -116,7 +115,7 @@ const App: React.FC = () => {
       dispatch({ type: 'DELETE_PERSON', payload: personToDelete.id });
       setPersonToDelete(null);
 
-      const errors = validateData(people.filter(p => p.id !== personToDelete.id)); // Validiere die ZUKÜNFTIGEN Daten
+      const errors = validateData(people.filter(p => p.id !== personToDelete.id));
       if (errors.length > 0) {
         setValidationErrors(errors);
       } else {
@@ -125,7 +124,7 @@ const App: React.FC = () => {
       
       setCurrentView('table');
       setAppState('database');
-      forceUpdate(); // Re-add forceUpdate() - in diesem Fall kann es notwendig sein, um das Rendering nach der asynchronen Validierung zu erzwingen
+      forceUpdate();
     }
   };
 
@@ -183,8 +182,7 @@ const App: React.FC = () => {
         updatedPeople = [...people, newPersonBase];
       }
     }
-    
-    // 🔽 Führe die Validierung DIREKT hier aus, aber mit den Zukünftigen Daten
+
     const errors = validateData(updatedPeople);
     if (errors.length > 0) {
       setValidationErrors(errors);
@@ -195,14 +193,14 @@ const App: React.FC = () => {
     setPersonDialogOpen(false);
     setCurrentView('table');
     setAppState('database');
-    forceUpdate(); // Re-add forceUpdate() - um das Rendering nach dem Speichern zu erzwingen
+    forceUpdate();
   };
 
   const handleImport = async (file: File) => {
     try {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
-      
+
       const errors = validateData(importedPeople);
       if (errors.length > 0) {
         setValidationErrors(errors);
@@ -233,7 +231,7 @@ const App: React.FC = () => {
     setSearchTerm('');
     setCurrentView('table');
     setAppState('database');
-    setValidationErrors([]); // Lösche Validierungsfehler
+    setValidationErrors([]);
     forceUpdate();
   };
 
