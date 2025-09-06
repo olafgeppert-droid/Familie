@@ -250,9 +250,9 @@ const App: React.FC = () => {
     printView('printable-area');
   };
 
-  const handleLoadSampleDataRequest = () {
-    setSettingsDialogOpen(false);
-    setLoadSampleDataDialogOpen(true);
+  const handleLoadSampleDataRequest = () => {
+  setSettingsDialogOpen(false);
+  setLoadSampleDataDialogOpen(true);
   };
 
   const confirmLoadSampleData = () => {
