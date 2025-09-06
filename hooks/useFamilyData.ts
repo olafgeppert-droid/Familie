@@ -219,7 +219,7 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'SET_DATA': {
       const normalizedPeople = normalizeCodes(action.payload);
       const cleanedPeople = cleanupReferences(normalizedPeople);
-      newState = { ...state, people: cleanedPeople };
+      newState = { people: cleanedPeople }; // ✅ WICHTIG: Kompletter State ersetzen!
       break;
     }
 
