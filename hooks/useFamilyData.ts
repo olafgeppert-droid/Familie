@@ -203,11 +203,14 @@ const reducer = (state: AppState, action: Action): AppState => {
     }
 
     case 'SET_DATA': {
-      // ✅ Fix: nicht returnen, sondern wie alle anderen durchlaufen lassen
-      const normalizedPeople = normalizeCodes(action.payload);
-      const cleanedPeople = cleanupReferences(normalizedPeople);
+      // ✅ ✅ ✅ WICHTIG: Importierte Daten sind BEREITS normalisiert!
+      // Nur Referenzen bereinigen und direkt speichern
+      const cleanedPeople = cleanupReferences(action.payload);
       newState = { people: cleanedPeople };
-      break;
+      
+      // ✅ SOFORT und EINMALIG speichern
+      saveStateToLocalStorage(newState);
+      return newState; // ✅ Verhindert doppeltes Speichern
     }
 
     case 'RESET_PERSON_DATA': {
@@ -227,7 +230,7 @@ const reducer = (state: AppState, action: Action): AppState => {
       return state;
   }
 
-  // ✅ Nach jeder Aktion speichern
+  // ✅ Nach jeder anderen Aktion speichern
   saveStateToLocalStorage(newState);
   return newState;
 };
