@@ -7,7 +7,7 @@ import { StatisticsView } from './components/StatisticsView';
 import { PersonDialog } from './components/PersonDialog';
 import { HelpDialog } from './components/HelpDialog';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
-import { useFamilyData } from './hooks/useFamilyData'; // ✅ KORRIGIERT
+import { useFamilyData } from './hooks/useFamilyData';
 import type { Person, View, PersonFormData } from './types';
 import { generatePersonCode, getCodeRecalculation } from './services/familyTreeService';
 import { exportData, importData } from './services/dataService';
