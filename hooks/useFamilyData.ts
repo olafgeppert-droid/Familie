@@ -7,7 +7,7 @@ import { validateData } from '../services/validateData';
 const defaultState: AppState = { people: [] };
 
 // 🔧 Foto-Komprimierungsfunktion
-const compressImage = async (base64String: string, maxSizeKB = 100): Promise<string> => {
+const compressImage = async (base64String: string, maxSizeKB = 50): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
