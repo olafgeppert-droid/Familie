@@ -6,11 +6,133 @@ import { validateData } from '../services/validateData';
 
 const defaultState: AppState = { people: [] };
 
-const saveStateToLocalStorage = (state: AppState) => {
+// 🔧 Foto-Komprimierungsfunktion
+const compressImage = async (base64String: string, maxSizeKB = 100): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      // Bestimme die maximale Größe
+      const maxPixels = (maxSizeKB * 1024) / 0.75; // 0.75 bytes per pixel approx
+      const scaleFactor = Math.sqrt(maxPixels / (img.width * img.height));
+      
+      const canvas = document.createElement('canvas');
+      const width = Math.round(img.width * scaleFactor);
+      const height = Math.round(img.height * scaleFactor);
+      
+      // Mindestgröße von 100px beibehalten
+      if (width < 100 || height < 100) {
+        resolve(base64String); // Original behalten wenn zu klein
+        return;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      
+      // Hochqualitatives Scaling
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Als JPEG mit guter Qualität speichern
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(base64String); // Fallback zum Original
+            return;
+          }
+          
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve(base64String); // Fallback
+          reader.readAsDataURL(blob);
+        },
+        'image/jpeg',
+        0.8 // Gute Qualität
+      );
+    };
+    
+    img.onerror = () => resolve(base64String); // Fallback zum Original
+    img.src = base64String;
+  });
+};
+
+// 🔧 Prüfe ob Base64-String ein Bild ist
+const isBase64Image = (str: string): boolean => {
+  return typeof str === 'string' && str.startsWith('data:image/') && str.includes('base64,');
+};
+
+// 🔧 Komprimiere alle Fotos im State
+const compressAllPhotos = async (state: AppState): Promise<AppState> => {
+  // Nur komprimieren wenn Fotos vorhanden
+  const hasPhotos = state.people.some(person => person.photoUrl && isBase64Image(person.photoUrl));
+  if (!hasPhotos) return state;
+
+  const compressedPeople = await Promise.all(
+    state.people.map(async (person) => {
+      if (person.photoUrl && isBase64Image(person.photoUrl)) {
+        try {
+          // Prüfe ob das Foto bereits klein genug ist (< 150KB)
+          const base64Data = person.photoUrl.split(',')[1];
+          const sizeKB = (base64Data.length * 0.75) / 1024;
+          
+          if (sizeKB < 150) {
+            return person; // Bereits klein genug
+          }
+          
+          const compressedPhoto = await compressImage(person.photoUrl);
+          return { ...person, photoUrl: compressedPhoto };
+        } catch (error) {
+          console.warn('Foto-Komprimierung fehlgeschlagen für', person.name, error);
+          return person; // Bei Fehler Original behalten
+        }
+      }
+      return person;
+    })
+  );
+  
+  return { ...state, people: compressedPeople };
+};
+
+// 🔧 ANGEPASSTE saveStateToLocalStorage Funktion
+const saveStateToLocalStorage = async (state: AppState) => {
   try {
-    localStorage.setItem('familyTreeState', JSON.stringify(state));
+    // Komprimiere Fotos vor dem Speichern
+    const compressedState = await compressAllPhotos(state);
+    const serializedState = JSON.stringify(compressedState);
+    
+    // Prüfe ob LocalStorage voll ist
+    if (serializedState.length > 4.5 * 1024 * 1024) {
+      console.warn('LocalStorage fast voll, komprimiere stärker...');
+      
+      // Stärkere Komprimierung für große States
+      const stronglyCompressedState = await compressAllPhotos({
+        ...state,
+        people: state.people.map(p => ({
+          ...p,
+          photoUrl: p.photoUrl && isBase64Image(p.photoUrl) 
+            ? p.photoUrl // Hier könnte man stärker komprimieren
+            : p.photoUrl
+        }))
+      });
+      
+      localStorage.setItem('familyTreeState', JSON.stringify(stronglyCompressedState));
+    } else {
+      localStorage.setItem('familyTreeState', serializedState);
+    }
   } catch (e) {
     console.warn('Could not save state to local storage', e);
+    
+    // Fallback: Versuche ohne Fotos zu speichern
+    try {
+      const stateWithoutPhotos = {
+        ...state,
+        people: state.people.map(p => ({ ...p, photoUrl: null }))
+      };
+      localStorage.setItem('familyTreeState', JSON.stringify(stateWithoutPhotos));
+    } catch (fallbackError) {
+      console.error('Auch Fallback-Speicherung fehlgeschlagen:', fallbackError);
+    }
   }
 };
 
@@ -203,14 +325,12 @@ const reducer = (state: AppState, action: Action): AppState => {
     }
 
     case 'SET_DATA': {
-      // ✅ ✅ ✅ WICHTIG: Importierte Daten sind BEREITS normalisiert!
-      // Nur Referenzen bereinigen und direkt speichern
       const cleanedPeople = cleanupReferences(action.payload);
       newState = { people: cleanedPeople };
       
       // ✅ SOFORT und EINMALIG speichern
       saveStateToLocalStorage(newState);
-      return newState; // ✅ Verhindert doppeltes Speichern
+      return newState;
     }
 
     case 'RESET_PERSON_DATA': {
