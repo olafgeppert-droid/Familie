@@ -69,16 +69,22 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
-  // ✅ STABILE Validation
+  // Validation after data changes - ONLY when in database mode
   useEffect(() => {
     if (appState === 'database') {
       try {
         const errors = validateData(state.people);
         setValidationErrors(errors);
       } catch (error) {
-        console.log('Validation läuft im Hintergrund');
-        // Keine Fehler setzen, Validation ist optional
+        console.error('Validation error:', error);
+        setValidationErrors([{
+          personId: 'validation-error',
+          message: 'Fehler bei der Datenvalidierung',
+          severity: 'error'
+        }]);
       }
+    } else {
+      setValidationErrors([]);
     }
   }, [state.people, appState]);
 
@@ -126,12 +132,12 @@ const App: React.FC = () => {
   };
 
   const handleSavePerson = (personData: PersonFormData) => {
-    const safeGender = personData.gender === 'm' || personData.gender === 'w' || personData.gender === 'd' 
-      ? personData.gender 
-      : 'm';
+    // ✅ KORRIGIERT: Geschlecht direkt übernehmen ohne Fallback
+    const gender = personData.gender;
 
     if (personData.id) {
-      const basePerson = { ...editingPerson!, ...personData, gender: safeGender };
+      // Bearbeiten einer bestehenden Person
+      const basePerson = { ...editingPerson!, ...personData, gender };
 
       let newRingCode = basePerson.code;
       if (personData.inheritedFrom && personData.inheritedFrom !== basePerson.inheritedFrom) {
@@ -148,6 +154,7 @@ const App: React.FC = () => {
       const updatedPerson: Person = { ...basePerson, ringCode: newRingCode };
       dispatch({ type: 'UPDATE_PERSON', payload: updatedPerson });
     } else {
+      // Hinzufügen einer neuen Person
       const tempId = `temp-${Date.now()}`;
       const newPersonBase: Person = {
         ...personData,
@@ -155,7 +162,7 @@ const App: React.FC = () => {
         code: '',
         ringCode: '',
         ringHistory: [],
-        gender: safeGender,
+        gender, // ✅ Korrektes Geschlecht
       };
 
       const newCode = generatePersonCode(newPersonBase, state.people);
