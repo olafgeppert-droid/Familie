@@ -19,11 +19,9 @@ const loadStateFromLocalStorage = (): AppState => {
     const serializedState = localStorage.getItem('familyTreeState');
     const hasBeenInitialized = localStorage.getItem('databaseHasBeenInitialized');
 
-    // ✅ ZUERST: Prüfen ob Daten im localStorage existieren
     if (serializedState !== null) {
       try {
         const parsedState = JSON.parse(serializedState);
-        // ✅ Daten vorhanden - diese zurückgeben (auch wenn people leer ist)
         if (parsedState && parsedState.people !== undefined) {
           if (!hasBeenInitialized) {
             localStorage.setItem('databaseHasBeenInitialized', 'true');
@@ -35,7 +33,6 @@ const loadStateFromLocalStorage = (): AppState => {
       }
     }
 
-    // ✅ Nur wenn KEINE Daten vorhanden sind: Initialisierungslogik
     if (serializedState === null) {
       if (hasBeenInitialized) return defaultState;
       localStorage.setItem('databaseHasBeenInitialized', 'true');
@@ -80,29 +77,20 @@ const generateUniqueId = (existingPeople: Person[]): string => {
   return (maxId + 1).toString();
 };
 
-/**
- * Hilfsfunktion: Stellt sicher, dass alle Codes konsistent bleiben.
- */
 function normalizeCodes(people: Person[]): Person[] {
   return people.map(p => {
-    // Code darf nur Zahlen + Buchstaben enthalten, optional mit "x" am Ende
     let validCode = p.code;
     if (!/^[0-9]+[A-Z0-9]*x?$/.test(validCode)) {
-      // Fallback: repariere Code
       validCode = validCode.replace(/[^0-9A-Zx]/g, '');
       if (validCode === '') validCode = 'X';
     }
 
-    // RingCode bleibt gekoppelt, falls identisch
     const ringCode = p.ringCode === p.code ? validCode : p.ringCode;
 
     return { ...p, code: validCode, ringCode };
   });
 }
 
-/**
- * Hilfsfunktion: Bereinigt ungültige Referenzen
- */
 function cleanupReferences(people: Person[]): Person[] {
   const validIds = new Set(people.map(p => p.id));
   
@@ -120,7 +108,6 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'ADD_PERSON': {
       const newPerson = action.payload;
       
-      // ✅ Sicherstellen, dass die Person eine gültige ID hat
       const personWithId = {
         ...newPerson,
         id: newPerson.id && newPerson.id.trim() !== '' 
@@ -146,7 +133,6 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'ADD_PERSON_WITH_RECALCULATION': {
       const { newPerson, updates } = action.payload;
       
-      // ✅ Sicherstellen, dass die Person eine gültige ID hat
       const personWithId = {
         ...newPerson,
         id: newPerson.id && newPerson.id.trim() !== '' 
@@ -217,11 +203,12 @@ const reducer = (state: AppState, action: Action): AppState => {
     }
 
     case 'SET_DATA': {
+      // ✅ ZUERST: Normalisieren und bereinigen
       const normalizedPeople = normalizeCodes(action.payload);
       const cleanedPeople = cleanupReferences(normalizedPeople);
-      newState = { people: cleanedPeople }; // ✅ Kompletter State ersetzen
+      newState = { people: cleanedPeople };
       
-      // ✅ ✅ ✅ SOFORT in localStorage speichern!
+      // ✅ DANN: Einmalig speichern
       saveStateToLocalStorage(newState);
       return newState; // ✅ Sofort zurückgeben, kein weiteres Speichern
     }
@@ -243,7 +230,7 @@ const reducer = (state: AppState, action: Action): AppState => {
       return state;
   }
 
-  // ✅ Nach jeder Aktion speichern (außer bei SET_DATA, das schon gespeichert hat)
+  // ✅ Nach jeder anderen Aktion speichern
   saveStateToLocalStorage(newState);
   return newState;
 };
