@@ -41,7 +41,6 @@ async function downloadFile(content: string, fileName: string, contentType: stri
     triggerDownload(blob, fileName);
 }
 
-
 function convertToCSV(people: Person[]): string {
     if (people.length === 0) return '';
     
@@ -55,13 +54,29 @@ function convertToCSV(people: Person[]): string {
 
     for (const person of people) {
         const values = headers.map(header => {
-            const value = person[header];
-            if (typeof value === 'string' && value.includes(',')) {
-                return `"${value}"`;
+            let value = person[header];
+            
+            // Handle different data types
+            if (value === null || value === undefined) {
+                return '';
             }
+            
             if (Array.isArray(value)) {
-                return `"${value.join(';')}"`;
+                value = value.join(';');
             }
+            
+            if (typeof value === 'boolean') {
+                value = value ? 'true' : 'false';
+            }
+            
+            // Escape quotes and wrap in quotes if contains comma or quotes
+            if (typeof value === 'string') {
+                value = value.replace(/"/g, '""');
+                if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                    value = `"${value}"`;
+                }
+            }
+            
             return value;
         });
         csvRows.push(values.join(','));
@@ -70,31 +85,81 @@ function convertToCSV(people: Person[]): string {
 }
 
 function parseCSV(csvText: string): Person[] {
-    const lines = csvText.split('\n');
+    const lines = csvText.split('\n').filter(line => line.trim() !== '');
+    if (lines.length < 2) return [];
+    
     const headers = lines[0].split(',').map(h => h.trim());
     const people: Person[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-        if (!lines[i]) continue;
-        // This is a naive CSV parser and will fail on quoted commas.
-        const values = lines[i].split(',');
+        if (!lines[i].trim()) continue;
+        
+        // ✅ KORRIGIERT: Korrekter CSV-Parser mit Anführungszeichen-Behandlung
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let j = 0; j < lines[i].length; j++) {
+            const char = lines[i][j];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current); // Letzten Wert hinzufügen
+
         const person: any = {};
-        for (let j = 0; j < headers.length; j++) {
-            let value: any = values[j];
+        for (let j = 0; j < headers.length && j < values.length; j++) {
+            let value: any = values[j].trim();
             const header = headers[j];
             
-            if (header === 'ringHistory') {
-                value = value.replace(/"/g, '').split(';');
-            } else if (header === 'hasRing') {
-                value = (value === 'true');
+            // Entferne umschließende Anführungszeichen
+            if (value.startsWith('"') && value.endsWith('"')) {
+                value = value.slice(1, -1).replace(/""/g, '"');
             }
             
-            if(value === 'null') value = null;
-            if(value === 'undefined') value = undefined;
-
+            // Typ-Konvertierung
+            if (value === '') {
+                value = null;
+            } else if (header === 'ringHistory') {
+                value = value ? value.split(';').filter((x: string) => x) : [];
+            } else if (header === 'hasRing') {
+                value = value === 'true';
+            } else if (header === 'birthDate' || header === 'deathDate') {
+                // Datumswerte bleiben als String (laut types.ts)
+                value = value || null;
+            } else if (header === 'parentId' || header === 'partnerId' || header === 'inheritedFrom') {
+                value = value || null;
+            }
+            
             person[header] = value;
         }
-        people.push(person as Person);
+        
+        // ✅ Sicherstellen, dass alle required Felder existieren
+        const completePerson: Person = {
+            id: person.id || '',
+            code: person.code || '',
+            name: person.name || '',
+            gender: person.gender || 'd',
+            birthDate: person.birthDate || '',
+            deathDate: person.deathDate || null,
+            birthPlace: person.birthPlace || null,
+            parentId: person.parentId || null,
+            partnerId: person.partnerId || null,
+            hasRing: person.hasRing || false,
+            ringCode: person.ringCode || null,
+            ringHistory: person.ringHistory || [],
+            inheritedFrom: person.inheritedFrom || null,
+            comment: person.comment || null,
+            photoUrl: person.photoUrl || null,
+        };
+        
+        people.push(completePerson);
     }
     return people;
 }
@@ -117,27 +182,29 @@ export const importData = (file: File): Promise<Person[]> => {
                 const content = event.target?.result as string;
                 if (file.name.endsWith('.json')) {
                     const data = JSON.parse(content);
-                    // Basic validation
-                    if (Array.isArray(data) && (data.length === 0 || 'id' in data[0])) {
+                    // ✅ Bessere Validierung
+                    if (Array.isArray(data) && data.every(item => 
+                        typeof item === 'object' && item !== null && 'id' in item
+                    )) {
                         resolve(data);
                     } else {
-                        reject(new Error('Invalid JSON format.'));
+                        reject(new Error('Ungültiges JSON-Format. Erwartet wird ein Array von Person-Objekten.'));
                     }
                 } else if (file.name.endsWith('.csv')) {
                     const data = parseCSV(content);
-                     if (Array.isArray(data) && (data.length === 0 || 'id' in data[0])) {
+                    if (Array.isArray(data) && data.length > 0) {
                         resolve(data);
                     } else {
-                        reject(new Error('Invalid CSV format.'));
+                        reject(new Error('Ungültiges CSV-Format oder leere Datei.'));
                     }
                 } else {
-                    reject(new Error('Unsupported file type. Please use .json or .csv'));
+                    reject(new Error('Nicht unterstützter Dateityp. Bitte .json oder .csv verwenden.'));
                 }
             } catch (e) {
-                reject(new Error(`Failed to parse file: ${e instanceof Error ? e.message : 'Unknown error'}`));
+                reject(new Error(`Fehler beim Parsen der Datei: ${e instanceof Error ? e.message : 'Unbekannter Fehler'}`));
             }
         };
-        reader.onerror = (error) => reject(new Error('Failed to read file.'));
+        reader.onerror = (error) => reject(new Error('Fehler beim Lesen der Datei.'));
         reader.readAsText(file);
     });
 };
