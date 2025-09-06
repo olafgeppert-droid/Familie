@@ -111,7 +111,7 @@ const saveStateToLocalStorage = async (state: AppState) => {
         people: state.people.map(p => ({
           ...p,
           photoUrl: p.photoUrl && isBase64Image(p.photoUrl) 
-            ? p.photoUrl // Hier könnte man stärker komprimieren
+            ? p.photoUrl
             : p.photoUrl
         }))
       });
@@ -223,6 +223,37 @@ function cleanupReferences(people: Person[]): Person[] {
   }));
 }
 
+// 🔧 Hilfsfunktion für wechselseitige Partner-Updates
+const updateReciprocalPartners = (people: Person[], updatedPerson: Person, originalPerson: Person | null): Person[] => {
+  return people.map(p => {
+    // Aktuelle Person aktualisieren
+    if (p.id === updatedPerson.id) {
+      return updatedPerson;
+    }
+
+    const oldPartnerId = originalPerson?.partnerId;
+    const newPartnerId = updatedPerson.partnerId;
+
+    // Alten Partner zurücksetzen (wenn nicht mehr Partner)
+    if (oldPartnerId && p.id === oldPartnerId && oldPartnerId !== newPartnerId) {
+      return { ...p, partnerId: null };
+    }
+
+    // Neuen Partner setzen (wenn gewechselt)
+    if (newPartnerId && p.id === newPartnerId && newPartnerId !== oldPartnerId) {
+      return { ...p, partnerId: updatedPerson.id };
+    }
+
+    // Partner-Consistenz prüfen: Wenn Person Partner von jemandem ist, muss diese Person auch Partner zurück haben
+    if (p.partnerId && p.partnerId === updatedPerson.id && updatedPerson.partnerId !== p.id) {
+      // Auto-Korrektur: Partner-Beziehung synchronisieren
+      return { ...p, partnerId: null };
+    }
+
+    return p;
+  });
+};
+
 const reducer = (state: AppState, action: Action): AppState => {
   let newState: AppState = state;
 
@@ -239,9 +270,12 @@ const reducer = (state: AppState, action: Action): AppState => {
 
       let updatedPeople = [...state.people];
 
+      // ✅ Wechselseitige Partner-Zuweisung
       if (personWithId.partnerId) {
         updatedPeople = updatedPeople.map(p =>
-          p.id === personWithId.partnerId ? { ...p, partnerId: personWithId.id } : p
+          p.id === personWithId.partnerId 
+            ? { ...p, partnerId: personWithId.id } // Partner zurück setzen
+            : p
         );
       }
 
@@ -275,6 +309,15 @@ const reducer = (state: AppState, action: Action): AppState => {
         return p;
       });
       
+      // ✅ Wechselseitige Partner-Zuweisung auch für neue Personen
+      if (personWithId.partnerId) {
+        updatedPeople = updatedPeople.map(p =>
+          p.id === personWithId.partnerId 
+            ? { ...p, partnerId: personWithId.id }
+            : p
+        );
+      }
+      
       updatedPeople = [...updatedPeople, personWithId];
       const normalizedPeople = normalizeCodes(updatedPeople);
       const cleanedPeople = cleanupReferences(normalizedPeople);
@@ -285,19 +328,13 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'UPDATE_PERSON': {
       const updatedPerson = action.payload;
       const originalPerson = state.people.find(p => p.id === updatedPerson.id);
+      
       if (!originalPerson) return state;
 
-      const oldPartnerId = originalPerson.partnerId;
-      const newPartnerId = updatedPerson.partnerId;
+      // ✅ Wechselseitige Partner-Updates
+      const updatedPeople = updateReciprocalPartners(state.people, updatedPerson, originalPerson);
 
-      let newPeople = state.people.map(p => {
-        if (p.id === updatedPerson.id) return updatedPerson;
-        if (p.id === oldPartnerId) return { ...p, partnerId: null };
-        if (p.id === newPartnerId) return { ...p, partnerId: updatedPerson.id };
-        return p;
-      });
-
-      const normalizedPeople = normalizeCodes(newPeople);
+      const normalizedPeople = normalizeCodes(updatedPeople);
       const cleanedPeople = cleanupReferences(normalizedPeople);
       newState = { ...state, people: cleanedPeople };
       break;
@@ -313,7 +350,7 @@ const reducer = (state: AppState, action: Action): AppState => {
         .map(p => {
           const next = { ...p };
           if (next.parentId === personIdToDelete) next.parentId = null;
-          if (next.id === partnerIdToUnlink) next.partnerId = null;
+          if (next.id === partnerIdToUnlink) next.partnerId = null; // Partner zurücksetzen
           if (next.partnerId === personIdToDelete) next.partnerId = null;
           return next;
         });
