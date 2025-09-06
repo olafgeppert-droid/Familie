@@ -56,47 +56,36 @@ const loadStateFromLocalStorage = (): AppState => {
   try {
     const serializedState = localStorage.getItem(STORAGE_KEY);
     const hasBeenInitialized = localStorage.getItem(INIT_FLAG_KEY);
-    const storedSchemaVersion = localStorage.getItem(SCHEMA_VERSION_KEY);
 
-    // Schema-Migration bei Bedarf
-    if (storedSchemaVersion !== STORAGE_SCHEMA_VERSION) {
-      console.log('Performing schema migration from', storedSchemaVersion, 'to', STORAGE_SCHEMA_VERSION);
+    // ✅ WICHTIG: Wenn Daten im localStorage existieren, diese IMMER laden!
+    if (serializedState !== null) {
+      try {
+        const parsedState = deserializeState(serializedState);
+        if (parsedState.people && parsedState.people.length > 0) {
+          // ✅ Daten vorhanden - diese zurückgeben
+          if (!hasBeenInitialized) {
+            localStorage.setItem(INIT_FLAG_KEY, 'true');
+          }
+          return parsedState;
+        }
+      } catch (parseError) {
+        console.error('Error parsing stored data, falling back to default:', parseError);
+      }
     }
 
-    if (serializedState === null) {
-      if (hasBeenInitialized) return defaultState;
+    // ✅ Nur wenn KEINE Daten vorhanden sind und noch nicht initialisiert wurde:
+    if (!hasBeenInitialized) {
       localStorage.setItem(INIT_FLAG_KEY, 'true');
       const initialStateWithSample = { ...defaultState, people: sampleData };
       saveStateToLocalStorage(initialStateWithSample);
       return initialStateWithSample;
     }
 
-    try {
-      const parsedState = deserializeState(serializedState);
-      if (!parsedState.people) {
-        if (hasBeenInitialized) return defaultState;
-        localStorage.setItem(INIT_FLAG_KEY, 'true');
-        const initialStateWithSample = { ...defaultState, people: sampleData };
-        saveStateToLocalStorage(initialStateWithSample);
-        return initialStateWithSample;
-      }
+    // ✅ Bereits initialisiert, aber keine Daten: Leeren State zurückgeben
+    return defaultState;
 
-      if (!hasBeenInitialized) {
-        localStorage.setItem(INIT_FLAG_KEY, 'true');
-      }
-      return { ...defaultState, ...parsedState };
-    } catch (parseError) {
-      console.error('Error parsing stored data:', parseError);
-      return defaultState;
-    }
-  } catch {
-    console.warn('Could not load state from local storage');
-    if (!localStorage.getItem(INIT_FLAG_KEY)) {
-      localStorage.setItem(INIT_FLAG_KEY, 'true');
-      const initialStateWithSample = { ...defaultState, people: sampleData };
-      saveStateToLocalStorage(initialStateWithSample);
-      return initialStateWithSample;
-    }
+  } catch (error) {
+    console.warn('Could not load state from local storage:', error);
     return defaultState;
   }
 };
