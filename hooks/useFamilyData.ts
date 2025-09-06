@@ -12,7 +12,7 @@ const INIT_FLAG_KEY = 'databaseHasBeenInitialized';
 
 const defaultState: AppState = { people: [] };
 
-// ✅ KORRIGIERT: Serialisierungs-Hilfsfunktionen
+// Serialisierungs-Hilfsfunktionen
 const serializeState = (state: AppState): string => {
   return JSON.stringify(state);
 };
@@ -20,7 +20,7 @@ const serializeState = (state: AppState): string => {
 const deserializeState = (serializedState: string): AppState => {
   const parsed = JSON.parse(serializedState);
   
-  // ✅ Sicherstellen, dass alle Felder den types.ts entsprechen
+  // Sicherstellen, dass alle Felder den types.ts entsprechen
   return {
     ...parsed,
     people: parsed.people.map((person: any) => ({
@@ -28,7 +28,7 @@ const deserializeState = (serializedState: string): AppState => {
       code: person.code || '',
       name: person.name || '',
       gender: person.gender || 'd',
-      birthDate: person.birthDate || '', // ✅ RICHTIG: birthDate statt geburtsdatum
+      birthDate: person.birthDate || '',
       deathDate: person.deathDate || null,
       birthPlace: person.birthPlace || null,
       parentId: person.parentId || null,
@@ -269,7 +269,7 @@ const reducer = (state: AppState, action: Action): AppState => {
       return state;
   }
 
-  // ✅ Zustand nach jeder Aktion speichern
+  // Zustand nach jeder Aktion speichern
   saveStateToLocalStorage(newState);
   return newState;
 };
