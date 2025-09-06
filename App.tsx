@@ -69,10 +69,14 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
-  // ✅ NEU: Automatischer AppState-Übergang wenn Daten geladen sind
+  // ✅ KORRIGIERT: Nur beim ersten Laden prüfen
   useEffect(() => {
-    if (state.people.length > 0 && appState !== 'database') {
-      setAppState('database');
+    // Nur wenn wir im Welcome-Modus sind prüfen ob Daten existieren
+    if (appState === 'welcome' && state.people.length > 0) {
+      // Frage den Nutzer ob er zur Datenbank wechseln möchte
+      if (confirm('Es existieren bereits Daten. Zur Datenbank wechseln?')) {
+        setAppState('database');
+      }
     }
   }, [state.people, appState]);
 
@@ -94,6 +98,16 @@ const App: React.FC = () => {
       setValidationErrors([]);
     }
   }, [state.people, appState]);
+
+  // ✅ Debug-Funktion zum Zurücksetzen
+  const resetApp = () => {
+    if (confirm('Wirklich alle Daten zurücksetzen und Willkommens-Bildschirm anzeigen?')) {
+      localStorage.removeItem('familyTreeState');
+      localStorage.removeItem('databaseHasBeenInitialized');
+      localStorage.removeItem('appColors');
+      window.location.reload();
+    }
+  };
 
   const handleAddPerson = () => {
     setEditingPerson(null);
@@ -208,7 +222,7 @@ const App: React.FC = () => {
       const importedPeople = await importData(file);
       dispatch({ type: 'SET_DATA', payload: importedPeople });
       setCurrentView('table');
-      // ✅ AppState wird automatisch durch useEffect gesetzt!
+      setAppState('database'); // ✅ Explizit in Datenbank-Modus wechseln
       alert('Daten erfolgreich importiert!');
     } catch (error) {
       console.error(error);
@@ -236,7 +250,7 @@ const App: React.FC = () => {
     printView('printable-area');
   };
 
-  const handleLoadSampleDataRequest = () => {
+  const handleLoadSampleDataRequest = () {
     setSettingsDialogOpen(false);
     setLoadSampleDataDialogOpen(true);
   };
@@ -302,6 +316,7 @@ const App: React.FC = () => {
           onHelp={() => setHelpDialogOpen(true)}
           onSettings={() => setSettingsDialogOpen(true)}
           onGoToWelcome={() => setAppState('welcome')}
+          onResetApp={resetApp} // ✅ Reset-Funktion hinzufügen
           color={colors.sidebar}
         />
         <div className="flex-grow flex flex-col overflow-hidden">
