@@ -219,8 +219,11 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'SET_DATA': {
       const normalizedPeople = normalizeCodes(action.payload);
       const cleanedPeople = cleanupReferences(normalizedPeople);
-      newState = { people: cleanedPeople }; // ✅ WICHTIG: Kompletter State ersetzen!
-      break;
+      newState = { people: cleanedPeople }; // ✅ Kompletter State ersetzen
+      
+      // ✅ ✅ ✅ SOFORT in localStorage speichern!
+      saveStateToLocalStorage(newState);
+      return newState; // ✅ Sofort zurückgeben, kein weiteres Speichern
     }
 
     case 'RESET_PERSON_DATA': {
@@ -240,7 +243,7 @@ const reducer = (state: AppState, action: Action): AppState => {
       return state;
   }
 
-  // ✅ ✅ ✅ WICHTIG: Nach jeder Aktion speichern!
+  // ✅ Nach jeder Aktion speichern (außer bei SET_DATA, das schon gespeichert hat)
   saveStateToLocalStorage(newState);
   return newState;
 };
