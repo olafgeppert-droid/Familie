@@ -69,17 +69,6 @@ const App: React.FC = () => {
     }
   }, [colors]);
 
-  // ✅ KORRIGIERT: Nur beim ersten Laden prüfen
-  useEffect(() => {
-    // Nur wenn wir im Welcome-Modus sind prüfen ob Daten existieren
-    if (appState === 'welcome' && state.people.length > 0) {
-      // Frage den Nutzer ob er zur Datenbank wechseln möchte
-      if (confirm('Es existieren bereits Daten. Zur Datenbank wechseln?')) {
-        setAppState('database');
-      }
-    }
-  }, [state.people, appState]);
-
   // Validation after data changes - ONLY when in database mode
   useEffect(() => {
     if (appState === 'database') {
@@ -251,8 +240,8 @@ const App: React.FC = () => {
   };
 
   const handleLoadSampleDataRequest = () => {
-  setSettingsDialogOpen(false);
-  setLoadSampleDataDialogOpen(true);
+    setSettingsDialogOpen(false);
+    setLoadSampleDataDialogOpen(true);
   };
 
   const confirmLoadSampleData = () => {
