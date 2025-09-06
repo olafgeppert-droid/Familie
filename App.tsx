@@ -42,7 +42,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('table');
   const [isPersonDialogOpen, setPersonDialogOpen] = useState(false);
   const [isHelpDialogOpen, setHelpDialogOpen] = useState(false);
-  const [isSettingsDialogOpen, setSettingsDialogOpen, useState(false);
+  const [isSettingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [personToDelete, setPersonToDelete] = useState<Person | null>(null);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
