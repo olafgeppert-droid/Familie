@@ -15,49 +15,10 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      inputRef.current?.focus();
     }, 100);
     return () => clearTimeout(timer);
   }, []);
-
-  // ✅ VOLLSTÄNDIGER KeyDown Handler für iPad
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Debugging: Zeige alle Tastendaten
-    console.log('iPad Key:', e.key, 'KeyCode:', e.keyCode, 'Which:', e.which, 'Code:', e.code);
-
-    // Unterstütze ALLE möglichen Enter-Tasten
-    const isEnterKey = 
-      e.key === 'Enter' ||
-      e.key === 'Go' ||
-      e.key === 'Next' ||
-      e.key === 'Done' ||
-      e.key === 'Send' ||
-      e.key === 'Submit' ||
-      e.key === 'Search' ||
-      e.keyCode === 13 ||
-      e.keyCode === 10 ||
-      e.which === 13 ||
-      e.which === 10 ||
-      e.code === 'Enter' ||
-      e.code === 'NumpadEnter';
-
-    if (isEnterKey) {
-      e.preventDefault();
-      handleSubmit(e);
-      return;
-    }
-
-    // ✅ Zusätzlich: Capture ALLE Tasten und prüfe auf Unicode
-    if (e.key && e.key.length === 1) {
-      const charCode = e.key.charCodeAt(0);
-      if (charCode === 13 || charCode === 10) { // Unicode für Enter
-        e.preventDefault();
-        handleSubmit(e);
-      }
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,9 +28,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
       onClose();
     } else {
       setError("Falsches Passwort!");
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      inputRef.current?.focus();
     }
   };
 
@@ -84,14 +43,13 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
             placeholder="Passwort eingeben"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
             className="border rounded-lg p-2"
             autoComplete="current-password"
             autoCorrect="off"
             autoCapitalize="none"
             inputMode="text"
-            // ✅ iPad-spezifische Attribute
-            enterKeyHint="go" // Weist iPad auf "Go"-Taste hin
+            enterKeyHint="go"   // zeigt „Los/Go“ auf iOS
+            required            // erzwingt Submit-Trigger
           />
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex justify-end gap-2">
@@ -103,7 +61,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
               Abbrechen
             </button>
             <button
-              type="submit"
+              type="submit"  // sorgt dafür, dass Enter überall funktioniert
               className="px-3 py-1 bg-blue-600 text-white rounded-lg"
             >
               Login
