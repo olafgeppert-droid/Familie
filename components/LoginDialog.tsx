@@ -13,22 +13,28 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ✅ Auto-Focus auf iOS sicherstellen
   useEffect(() => {
-    // Kurzer Delay für iOS Kompatibilität
     const timer = setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
       }
     }, 100);
-    
     return () => clearTimeout(timer);
   }, []);
 
-  // ✅ Expliziter KeyDown Handler für iOS
+  // ✅ ERWEITERTER KeyDown Handler für iPad Meter-Taste
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault(); // Wichtig für iOS
+    // Unterstütze ALLE Enter-Tasten Varianten:
+    if (e.key === 'Enter' || 
+        e.key === 'Go' || 
+        e.key === 'Next' || 
+        e.key === 'Done' || 
+        e.key === 'Send' ||
+        e.keyCode === 13 ||   // Standard Enter
+        e.keyCode === 10 ||   // Alternative Enter
+        e.which === 13 ||     // Legacy Support
+        e.which === 10) {
+      e.preventDefault();
       handleSubmit(e);
     }
   };
@@ -41,7 +47,6 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
       onClose();
     } else {
       setError("Falsches Passwort!");
-      // Focus zurück zum Input für iOS
       if (inputRef.current) {
         inputRef.current.focus();
       }
@@ -59,11 +64,13 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
             placeholder="Passwort eingeben"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown} // ✅ Explizit für iOS
+            onKeyDown={handleKeyDown}
             className="border rounded-lg p-2"
-            autoComplete="current-password" // ✅ Wichtig für iOS AutoFill
-            autoCorrect="off" // ✅ AutoKorrektur ausschalten
-            autoCapitalize="none" // ✅ Großschreibung ausschalten
+            autoComplete="current-password"
+            autoCorrect="off"
+            autoCapitalize="none"
+            // ✅ WICHTIG für iPad: inputmode für bessere Tastatur
+            inputMode="text"
           />
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex justify-end gap-2">
