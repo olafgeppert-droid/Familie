@@ -12,20 +12,15 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const submitBtnRef = useRef<HTMLButtonElement | null>(null);
-  const submittingRef = useRef(false);
-  const isFocusedRef = useRef(false);
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 100);
     return () => clearTimeout(t);
   }, []);
 
-  const handleSubmit = (e?: Event | React.FormEvent) => {
-    try { e?.preventDefault?.(); } catch {}
-    if (submittingRef.current) return;
-    submittingRef.current = true;
-    setTimeout(() => { submittingRef.current = false; }, 500);
+  const handleSubmit = (e?: React.FormEvent) => {
+    // Verhindert das Standard-Reload der Seite, falls das Ereignis vorhanden ist
+    e?.preventDefault();
 
     if (password === CORRECT_PASSWORD) {
       setError("");
@@ -33,59 +28,20 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
       onClose();
     } else {
       setError("Falsches Passwort!");
+      setPassword(""); 
       inputRef.current?.focus();
     }
   };
 
-  const checkForEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const key = e.key;
-    const isEnter =
-      key === "Enter" ||
-      key === "Return" ||
-      key === "Go" ||
-      key === "Done" ||
-      key === "Next" ||
-      key === "Search" ||
-      (typeof (e as any).which === "number" && (e as any).which === 13) ||
-      (typeof (e as any).keyCode === "number" && (e as any).keyCode === 13);
-
-    if (isEnter) {
-      e.preventDefault();
-      if (submitBtnRef.current) {
-        setTimeout(() => submitBtnRef.current?.click(), 0);
-      } else {
-        handleSubmit();
-      }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Liste der möglichen Enter-Key-Namen auf mobilen Tastaturen
+    const enterKeys = ["Enter", "Return", "Go", "Done", "Next", "Search"];
+    
+    if (enterKeys.includes(e.key)) {
+      e.preventDefault(); // Verhindert unerwünschtes Verhalten
+      handleSubmit();     // Löst die Überprüfung aus
     }
   };
-
-  useEffect(() => {
-    const nativeHandler = (e: KeyboardEvent) => {
-      if (!isFocusedRef.current) return;
-
-      const k = e.key;
-      const isEnter =
-        k === "Enter" ||
-        k === "Return" ||
-        k === "Go" ||
-        k === "Done" ||
-        k === "Next" ||
-        k === "Search" ||
-        e.keyCode === 13;
-
-      if (isEnter) {
-        e.preventDefault();
-        if (submitBtnRef.current) {
-          submitBtnRef.current.click();
-        } else {
-          handleSubmit();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", nativeHandler, true);
-    return () => window.removeEventListener("keydown", nativeHandler, true);
-  }, [password]);
 
   return (
     <div
@@ -96,7 +52,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
       <div className="bg-white rounded-2xl shadow-lg p-6 w-80">
         <h2 className="text-xl font-bold mb-4">🔐 Login</h2>
         <form
-          onSubmit={(e) => handleSubmit(e)}
+          onSubmit={handleSubmit}
           className="flex flex-col gap-3"
           noValidate
         >
@@ -106,9 +62,7 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
             placeholder="Passwort eingeben"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={checkForEnter}
-            onFocus={() => { isFocusedRef.current = true; }}
-            onBlur={() => { isFocusedRef.current = false; }}
+            onKeyDown={handleKeyDown} {/* Neuer Handler */}
             className="border rounded-lg p-2"
             autoComplete="current-password"
             autoCorrect="off"
@@ -128,7 +82,6 @@ export const LoginDialog: React.FC<LoginDialogProps> = ({ onSuccess, onClose }) 
               Abbrechen
             </button>
             <button
-              ref={submitBtnRef}
               type="submit"
               className="px-3 py-1 bg-blue-600 text-white rounded-lg"
             >
